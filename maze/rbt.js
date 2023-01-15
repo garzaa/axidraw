@@ -93,15 +93,6 @@ function drawCell(cell, i, j) {
         if ((j == 0))                             leftLine();
         if (((i == yCount-1) || !(cell & S)))  bottomLine();
         if ((i == 0))                             topLine();
-
-        push();
-            noStroke();
-            textFont("monospace");
-            textAlign(CENTER, CENTER);
-            //text(cell, cellSize/2, cellSize/2);
-        pop();
-
-
     pop();
 }
 
