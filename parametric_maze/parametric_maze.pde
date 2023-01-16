@@ -12,6 +12,7 @@ int mazeSize = 360;
 
 int cells = mazeSize/cellSize;
 int margin = (canvasSize-mazeSize)/2;
+int pointsPerLine = 6;
 
 int N = 0b0001;
 int S = 0b0010;
@@ -41,10 +42,10 @@ public class Cell {
 		float px = x*cellSize - cellSize/2;
 		float py = y*cellSize - cellSize/2;
 
-		vec2 tl = new vec2(px, py).perturb();
-		vec2 bl = new vec2(px, py+cellSize).perturb();
-		vec2 tr = new vec2(px+cellSize, py).perturb();
-		vec2 br = new vec2(px+cellSize, py+cellSize).perturb();
+		vec2 tl = new vec2(px, py);
+		vec2 bl = new vec2(px, py+cellSize);
+		vec2 tr = new vec2(px+cellSize, py);
+		vec2 br = new vec2(px+cellSize, py+cellSize);
 
 		if ((x == cells-1) || ((direction&E) == 0)) doLine(tr, br);
 		if (x == 0) doLine(tl, bl);
@@ -52,11 +53,28 @@ public class Cell {
 		if (y == 0) doLine(tl, tr);
 	}
 
-	void doLine(vec2 start, vec2 end) {
-		line(
-			start.x, start.y,
-			end.x, end.y
-		);
+	// these should be unperturbed, and then be perturbed along the line
+	void doLine(vec2 rawStart, vec2 rawEnd) {
+		// continuously perturb lines along perturbation axis
+		// do multiple segments if the distance is greater than cellsize
+		vec2 start = rawStart.perturb();
+		vec2 end = rawEnd.perturb();
+
+		if (start.xydist(end) <= cellSize) {
+			line(
+				start.x, start.y,
+				end.x, end.y
+			);
+		} else {
+			// now we draw multi-point lines between perturbed coordinates
+			beginShape();
+			for (float i=0; i<=pointsPerLine; i++) {
+				// lerp the raw point between start and end
+				vec2 v = rawStart.selfLerp(rawEnd, i/pointsPerLine).perturb();
+				vertex(v.x, v.y);
+			}
+			endShape();
+		}
 	}
 }
 
@@ -70,10 +88,18 @@ class vec2 {
 	}
 
 	public vec2 perturb() {
-		float cx = sin((y)*p1/PI + o1) * a1;
-		cx *= sin(y*ampP/100/PI + ampO) * ampA;
+		float cx = sin(y/p1/PI + o1) * a1;
+		cx *= sin(y/ampP/PI + ampO) * ampA;
 		float cy = 0;
 		return new vec2(x+cx, y+cy);
+	}
+
+	public float xydist(vec2 p2) {
+		return abs(p2.x-x) + abs(p2.y-y);
+	}
+
+	public vec2 selfLerp(vec2 b, float t) {
+		return new vec2(lerp(x, b.x, t), lerp(y, b.y, t));
 	}
 }
 
@@ -140,6 +166,7 @@ void initControls() {
 		.setRange(0, 100)
 		.setValue(100)
 		.setNumberOfTickMarks(100)
+		.setColorCaptionLabel(50)
 		;
 	
 	cp5
@@ -149,41 +176,46 @@ void initControls() {
 		.setValue(-0.18)
 		.setNumberOfTickMarks(50)
 		.setPosition(10, 40)
+		.setColorCaptionLabel(50)
 		;
 
 	cp5
 		.addSlider("p1")
 		.setLabel("period1")
-		.setRange(0, 15)
-		.setValue(3.03)
-		.setPosition(10, 50);
+		.setRange(0.01, 20)
+		.setValue(3)
+		.setPosition(10, 50)
+		.setColorCaptionLabel(50)
 		;
 
 	
 	cp5
 		.addSlider("ampA")
-		.setLabel("amplitude1")
+		.setLabel("amplitudeStrength")
 		.setRange(-1, 1)
 		.setValue(.55)
 		.setNumberOfTickMarks(50)
-		.setPosition(110, 30)
+		.setPosition(210, 30)
+		.setColorCaptionLabel(50)
 		;
 	
 	cp5
 		.addSlider("ampO")
-		.setLabel("offset1")
+		.setLabel("amplitudeOffset")
 		.setRange(-1, 1)
 		.setValue(0.02)
 		.setNumberOfTickMarks(50)
-		.setPosition(110, 40)
+		.setPosition(210, 40)
+		.setColorCaptionLabel(50)
 		;
 
 	cp5
 		.addSlider("ampP")
-		.setLabel("period1")
-		.setRange(0, 15)
-		.setValue(0.90)
-		.setPosition(110, 50);
+		.setLabel("amplitudePeriod")
+		.setRange(0.01, 200)
+		.setValue(1)
+		.setPosition(210, 50)
+		.setColorCaptionLabel(50)
 		;
 }
 
@@ -266,6 +298,7 @@ void draw() {
 	if (exportSVG) {
     endRecord();
     exportSVG = false;
+	cp5.setAutoDraw(true);
     System.out.println("exported SVG");
   }
 }
@@ -284,6 +317,7 @@ void drawMaze() {
 void keyPressed() {
 	if (key == 'e') {
 		System.out.println("exporting SVG");
+		cp5.setAutoDraw(false);
 		exportSVG = true;
 	}
 }
