@@ -87,10 +87,13 @@ class vec2 {
 		this.y = y;
 	}
 
+	// update based on perlin strength and offset for x and y
 	public vec2 perturb() {
-		float cx = sin(y/p1/PI + o1) * a1;
-		cx *= sin(y/ampP/PI + ampO) * ampA;
-		float cy = 0;
+		float cx = noise(y*perlinXD + perlinXO)*perlinXA;
+		float cy = noise(x*perlinYD + perlinYO)*perlinYA;
+		// need to map these from (0, 1) to (-1, 1) for centralizing them
+		cx = cx*2 - 2;
+		cy = cy*2 - 2;
 		return new vec2(x+cx, y+cy);
 	}
 
@@ -148,72 +151,69 @@ void initRows() {
 	}
 }
 
-// horizontal distortion
-float a1 = 0;
-float o1 = 0;
-float p1 = 0;
+float perlinXA = 1;
+float perlinXO = 0;
+float perlinXD = 1;
 
-// horizontal distortion amplitude
-float ampA = 0;
-float ampO = 0;
-float ampP = 0;
+float perlinYA = 1;
+float perlinYO = 0;
+float perlinYD = 0;
 
 void initControls() {
 	cp5 = new ControlP5(this);
 	cp5
-		.addSlider("a1")
-		.setLabel("amplitude1")
+		.addSlider("perlinXA")
+		.setLabel("perlinAmp")
 		.setRange(0, 100)
-		.setValue(100)
+		.setValue(1)
 		.setNumberOfTickMarks(100)
 		.setColorCaptionLabel(50)
 		;
 	
 	cp5
-		.addSlider("o1")
-		.setLabel("offset1")
-		.setRange(-1, 1)
-		.setValue(-0.18)
-		.setNumberOfTickMarks(50)
+		.addSlider("perlinXO")
+		.setLabel("perlinXOff")
+		.setRange(-100, 100)
+		.setValue(0)
+		.setNumberOfTickMarks(201)
 		.setPosition(10, 40)
 		.setColorCaptionLabel(50)
 		;
 
 	cp5
-		.addSlider("p1")
-		.setLabel("period1")
-		.setRange(0.01, 20)
-		.setValue(3)
+		.addSlider("perlinXD")
+		.setLabel("perlinXD")
+		.setRange(0.1, 0.001)
+		.setValue(0.05)
 		.setPosition(10, 50)
 		.setColorCaptionLabel(50)
 		;
-
 	
 	cp5
-		.addSlider("ampA")
-		.setLabel("amplitudeStrength")
-		.setRange(-1, 1)
-		.setValue(.55)
-		.setNumberOfTickMarks(50)
+		.addSlider("perlinYA")
+		.setLabel("perlinYAmp")
+		.setRange(0, 100)
+		.setValue(1)
+		.setNumberOfTickMarks(100)
 		.setPosition(210, 30)
 		.setColorCaptionLabel(50)
 		;
 	
 	cp5
-		.addSlider("ampO")
-		.setLabel("amplitudeOffset")
-		.setRange(-1, 1)
-		.setValue(0.02)
-		.setNumberOfTickMarks(50)
+		.addSlider("perlinYO")
+		.setLabel("perlinYOff")
+		.setRange(-100, 100)
+		.setValue(0)
+		.setNumberOfTickMarks(201)
 		.setPosition(210, 40)
 		.setColorCaptionLabel(50)
 		;
 
 	cp5
-		.addSlider("ampP")
-		.setLabel("amplitudePeriod")
-		.setRange(0.01, 200)
-		.setValue(1)
+		.addSlider("perlinYD")
+		.setLabel("perlinYD")
+		.setRange(0.001, 0.1)
+		.setValue(0.05)
 		.setPosition(210, 50)
 		.setColorCaptionLabel(50)
 		;
@@ -221,7 +221,6 @@ void initControls() {
 
 void setup() {
 	size(800, 800);
-	pixelDensity(2);
 	noFill();
 	background(255);
 
@@ -295,7 +294,6 @@ void draw() {
 	}
 
 	drawMaze();
-	drawHelpers();
 
 	if (exportSVG) {
     endRecord();
@@ -303,36 +301,6 @@ void draw() {
 	cp5.setAutoDraw(true);
     System.out.println("exported SVG");
   }
-}
-
-void drawHelpers() {
-	if (exportSVG) return;
-	int p = pointsPerLine * cells;
-	push();
-		// first line: green sinewave
-		stroke(0xff00ff00);
-		vec2 baseStart = new vec2(100, 220);
-		vec2 baseEnd = new vec2(100, 220+360);
-		beginShape();
-		for (float i=0; i<=p; i++) {
-			// lerp the raw point between start and end
-			vec2 v = baseStart.selfLerp(baseEnd, i/p);
-			v.x += sin(v.y/p1/PI + o1) * a1 * 0.5;
-			vertex(v.x, v.y);
-		}
-		endShape();
-
-		// then the red line
-		stroke(0xffff0000);
-		beginShape();
-		for (float i=0; i<=p; i++) {
-			// lerp the raw point between start and end
-			vec2 v = baseStart.selfLerp(baseEnd, i/p);
-			v.x += sin(v.y/ampP/PI + ampO) * ampA * a1;
-			vertex(v.x, v.y);
-		}
-		endShape();
-	pop();
 }
 
 void drawMaze() {
