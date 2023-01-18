@@ -5,14 +5,17 @@ import controlP5.*;
 ControlP5 cp5;
 boolean exportSVG = false;
 
-int canvasSize = 800;
+// 8x6 in
+int w = 768;
+int h = 576;
 
-int cellSize = 6;
-int mazeSize = 360;
+int cellSize = 4;
+int mazeSize = 400;
 
 int cells = mazeSize/cellSize;
-int margin = (canvasSize-mazeSize)/2;
-int pointsPerLine = 6;
+int marginX = (w-mazeSize)/2;
+int marginY = (h-mazeSize)/2;
+int pointsPerLine = cellSize;
 
 int N = 0b0001;
 int S = 0b0010;
@@ -47,12 +50,6 @@ public class Cell {
 		vec2 tr = new vec2(px+cellSize, py);
 		vec2 br = new vec2(px+cellSize, py+cellSize);
 
-		// DEDUPE WALL DRAWING HERE
-		// only do top or left walls if it's a top/left edge
-		// or wait, that's already what's happening
-		// huh???
-		// ok it goes over the outside lines too
-		// are there multiple calls to draw when the SVG is being recorded?
 		if ((x == cells-1) || ((direction&E) == 0)) doLine(tr, br, pointsPerLine);
 		if (x == 0) doLine(tl, bl, pointsPerLine);
 		if ((y == cells-1) || ((direction&S) == 0)) doLine(bl, br, pointsPerLine);
@@ -63,24 +60,38 @@ public class Cell {
 // these should be unperturbed, and then be perturbed along the line
 void doLine(vec2 rawStart, vec2 rawEnd, int p) {
 		// continuously perturb lines along perturbation axis
-		// do multiple segments if the distance is greater than cellsize
 		vec2 start = rawStart.perturb();
 		vec2 end = rawEnd.perturb();
 
+		// do multiple segments if the distance is greater than cellsize
 		if (start.xydist(end) <= cellSize) {
 			line(
 				start.x, start.y,
 				end.x, end.y
 			);
 		} else {
-			// now we draw multi-point lines between perturbed coordinates
-			beginShape();
-			for (float i=0; i<=p; i++) {
-				// lerp the raw point between start and end
-				vec2 v = rawStart.selfLerp(rawEnd, i/p).perturb();
-				vertex(v.x, v.y);
+			// do a multi-point line
+			// SVGs will export duplicate shapes, 1 stroke and 1 fill
+			// even if one of those isn't set
+			// which means the AxiDraw makes 2 passes on shapes (bad)
+			if (exportSVG) {
+				vec2 prev = null;
+				for (float i=0; i<=p; i++) {
+					vec2 v = rawStart.selfLerp(rawEnd, i/p).perturb();
+					if (prev != null) {
+						line(prev.x, prev.y, v.x, v.y);
+					}
+					prev = v;
+				}
+			} else {
+				beginShape();
+				vec2 prev = null;
+				for (float i=0; i<=p; i++) {
+					vec2 v = rawStart.selfLerp(rawEnd, i/p).perturb();
+					vertex(v.x, v.y);
+				}
+				endShape();
 			}
-			endShape();
 		}
 	}
 
@@ -189,7 +200,7 @@ void initControls() {
 		.addSlider("perlinXD")
 		.setLabel("perlinXD")
 		.setRange(10, 1000)
-		.setValue(10)
+		.setValue(340)
 		.setPosition(10, 50)
 		.setColorCaptionLabel(50)
 		;
@@ -218,18 +229,22 @@ void initControls() {
 		.addSlider("perlinYD")
 		.setLabel("perlinYD")
 		.setRange(10, 1000)
-		.setValue(10)
+		.setValue(340)
 		.setPosition(210, 50)
 		.setColorCaptionLabel(50)
 		;
 }
 
+void redraw() {
+	System.out.println("reset button pressed");
+}
+
+void settings() {
+	size(w, h);
+}
+
 void setup() {
-	size(800, 800);
-	// svgs are twice the size with this set, don't want it for print
-	pixelDensity(2);
 	noFill();
-	background(255);
 
 	initControls();
 	initDicts();
@@ -295,7 +310,6 @@ void setup() {
 
 void draw() {
 	background(255);
-
 	if (exportSVG) {
     	beginRecord(SVG, "exports/export_"+timestamp()+".svg");
   	}
@@ -303,8 +317,8 @@ void draw() {
 	drawMaze();
 
 	if (exportSVG) {
-		endRecord();
 		exportSVG = false;
+		endRecord();
 		cp5.setAutoDraw(true);
 		System.out.println("exported SVG");
 	}
@@ -312,7 +326,7 @@ void draw() {
 
 void drawMaze() {
 	push();
-		translate(margin, margin);
+		translate(marginX, marginY);
 		for (int i=0; i<rows.size(); i++) {
 			for (int j=0; j<rows.get(i).size(); j++) {
 				rows.get(i).get(j).draw();

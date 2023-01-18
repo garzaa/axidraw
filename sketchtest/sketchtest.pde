@@ -5,15 +5,17 @@ import controlP5.*;
 ControlP5 cp5;
 boolean exportSVG = false;
 
+// 8x6 in
 int w = 768;
 int h = 576;
 
-int cellSize = 30;
-int mazeSize = 360;
+int cellSize = 4;
+int mazeSize = 400;
 
 int cells = mazeSize/cellSize;
 int marginX = (w-mazeSize)/2;
 int marginY = (h-mazeSize)/2;
+int pointsPerLine = cellSize;
 
 int N = 0b0001;
 int S = 0b0010;
@@ -36,6 +38,87 @@ public class Cell {
 	public Cell(int x, int y) {
 		this.x = x;
 		this.y = y;
+	}
+
+	void draw() {
+		// start at top left corner
+		float px = x*cellSize - cellSize/2;
+		float py = y*cellSize - cellSize/2;
+
+		vec2 tl = new vec2(px, py);
+		vec2 bl = new vec2(px, py+cellSize);
+		vec2 tr = new vec2(px+cellSize, py);
+		vec2 br = new vec2(px+cellSize, py+cellSize);
+
+		if ((x == cells-1) || ((direction&E) == 0)) doLine(tr, br, pointsPerLine);
+		if (x == 0) doLine(tl, bl, pointsPerLine);
+		if ((y == cells-1) || ((direction&S) == 0)) doLine(bl, br, pointsPerLine);
+		if (y == 0) doLine(tl, tr, pointsPerLine);
+	}
+}
+
+// these should be unperturbed, and then be perturbed along the line
+void doLine(vec2 rawStart, vec2 rawEnd, int p) {
+		// continuously perturb lines along perturbation axis
+		vec2 start = rawStart.perturb();
+		vec2 end = rawEnd.perturb();
+
+		// do multiple segments if the distance is greater than cellsize
+		if (start.xydist(end) <= cellSize) {
+			line(
+				start.x, start.y,
+				end.x, end.y
+			);
+		} else {
+			// do a multi-point line
+			// SVGs will export duplicate shapes, 1 stroke and 1 fill
+			// even if one of those isn't set
+			// which means the AxiDraw makes 2 passes on shapes (bad)
+			if (exportSVG) {
+				vec2 prev = null;
+				for (float i=0; i<=p; i++) {
+					vec2 v = rawStart.selfLerp(rawEnd, i/p).perturb();
+					if (prev != null) {
+						line(prev.x, prev.y, v.x, v.y);
+					}
+					prev = v;
+				}
+			} else {
+				beginShape();
+				vec2 prev = null;
+				for (float i=0; i<=p; i++) {
+					vec2 v = rawStart.selfLerp(rawEnd, i/p).perturb();
+					vertex(v.x, v.y);
+				}
+				endShape();
+			}
+		}
+	}
+
+class vec2 {
+	float x;
+	float y;
+
+	public vec2(float x, float y) {
+		this.x = x;
+		this.y = y;
+	}
+
+	public vec2 perturb() {
+		float cx = noise(x/perlinXD + perlinXO, y/perlinXD + perlinXO, 0);
+		float cy = noise(x/perlinYD + perlinYO, y/perlinYD + perlinYO, 1000);
+		// need to map these from (0, 1) to (-1, 1) for centralizing them
+		cx = (cx*2 - 1)*perlinXA;
+		cy = (cy*2 - 1)*perlinYA;
+		return new vec2(x+cx, y+cy);
+	}
+
+	public float xydist(vec2 p2) {
+		return abs(p2.x-x) + abs(p2.y-y);
+	}
+
+	public vec2 selfLerp(vec2 b, float t) {
+		return new vec2(lerp(x, b.x, t), lerp(y, b.y, t));
 	}
 }
 
@@ -84,16 +167,86 @@ void initRows() {
 	}
 }
 
-// setting size to a variable has to happen in settings()
+float perlinXA = 1;
+float perlinXO = 0;
+float perlinXD = 1;
+
+float perlinYA = 1;
+float perlinYO = 0;
+float perlinYD = 0;
+
+void initControls() {
+	cp5 = new ControlP5(this);
+	cp5
+		.addSlider("perlinXA")
+		.setLabel("perlinAmp")
+		.setRange(0, 100)
+		.setValue(100)
+		.setNumberOfTickMarks(100)
+		.setColorCaptionLabel(50)
+		;
+	
+	cp5
+		.addSlider("perlinXO")
+		.setLabel("perlinXOff")
+		.setRange(-100, 100)
+		.setValue(-33)
+		.setNumberOfTickMarks(201)
+		.setPosition(10, 40)
+		.setColorCaptionLabel(50)
+		;
+
+	cp5
+		.addSlider("perlinXD")
+		.setLabel("perlinXD")
+		.setRange(10, 1000)
+		.setValue(340)
+		.setPosition(10, 50)
+		.setColorCaptionLabel(50)
+		;
+	
+	cp5
+		.addSlider("perlinYA")
+		.setLabel("perlinYAmp")
+		.setRange(0, 100)
+		.setValue(66)
+		.setNumberOfTickMarks(100)
+		.setPosition(210, 30)
+		.setColorCaptionLabel(50)
+		;
+	
+	cp5
+		.addSlider("perlinYO")
+		.setLabel("perlinYOff")
+		.setRange(-100, 100)
+		.setValue(-17)
+		.setNumberOfTickMarks(201)
+		.setPosition(210, 40)
+		.setColorCaptionLabel(50)
+		;
+
+	cp5
+		.addSlider("perlinYD")
+		.setLabel("perlinYD")
+		.setRange(10, 1000)
+		.setValue(340)
+		.setPosition(210, 50)
+		.setColorCaptionLabel(50)
+		;
+}
+
+void redraw() {
+	System.out.println("reset button pressed");
+}
+
 void settings() {
 	size(w, h);
 }
 
 void setup() {
 	noFill();
-	background(255);
 
-
+	initControls();
 	initDicts();
 	initRows();
 
@@ -105,17 +258,9 @@ void setup() {
 	Cell startCell = rows.get(x).get(y);
 	startCell.visited = true;
 	cellStack.push(startCell);
-}
-
-void draw() {
-	background(255);
-
-	if (exportSVG) {
-    	beginRecord(SVG, "exports/export_"+timestamp()+".svg");
-  	}
 
 	// while the stack isn't empty:
-	if (!cellStack.empty()) {
+	while (!cellStack.empty()) {
 		// pop a current cell
 		Cell current = cellStack.pop();
 		// choose one of the unvisited neighbors
@@ -161,14 +306,22 @@ void draw() {
 			cellStack.push(chosenNeighbor);
 		}
 	}
+}
+
+void draw() {
+	background(255);
+	if (exportSVG) {
+    	beginRecord(SVG, "exports/export_"+timestamp()+".svg");
+  	}
 
 	drawMaze();
 
 	if (exportSVG) {
-    endRecord();
-    exportSVG = false;
-    System.out.println("exported SVG");
-  }
+		exportSVG = false;
+		endRecord();
+		cp5.setAutoDraw(true);
+		System.out.println("exported SVG");
+	}
 }
 
 void drawMaze() {
@@ -176,49 +329,19 @@ void drawMaze() {
 		translate(marginX, marginY);
 		for (int i=0; i<rows.size(); i++) {
 			for (int j=0; j<rows.get(i).size(); j++) {
-				drawCell(rows.get(i).get(j));
+				rows.get(i).get(j).draw();
 			}
 		}
 	pop();
 }
 
-// non-corner cells should just draw their
-// bottom right neighbors to avoid overlapping wall lines
-void drawCell(Cell cell) {
-	push();
-		// start at top right corner
-		translate(
-			cell.x*cellSize - cellSize/2,
-			cell.y*cellSize - cellSize/2
-		);
-
-		if ((cell.x == cells-1) || ((cell.direction&E) == 0)) rightLine();
-		if (cell.x == 0) leftLine();
-		if ((cell.y == cells-1) || ((cell.direction&S) == 0)) bottomLine();
-		if (cell.y == 0) topLine();
-	pop();
-}
-
-void leftLine() {
-    line(0, cellSize, 0, 0);
-}
-
-void rightLine() {
-    line(cellSize, 0, cellSize, cellSize);
-}
-
-void bottomLine() {
-    line(cellSize, cellSize, 0, cellSize);
-}
-
-void topLine() {
-    line(0, 0, cellSize, 0);
-}
-
 void keyPressed() {
 	if (key == 'e') {
 		System.out.println("exporting SVG");
+		cp5.setAutoDraw(false);
 		exportSVG = true;
+	} else if (key == 'q') {
+		exit();
 	}
 }
 
