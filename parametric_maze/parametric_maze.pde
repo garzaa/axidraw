@@ -7,7 +7,7 @@ boolean exportSVG = false;
 
 int canvasSize = 800;
 
-int cellSize = 6;
+int cellSize = 60;
 int mazeSize = 360;
 
 int cells = mazeSize/cellSize;
@@ -221,7 +221,6 @@ void initControls() {
 
 void setup() {
 	size(800, 800);
-	pixelDensity(2);
 	noFill();
 	background(255);
 
