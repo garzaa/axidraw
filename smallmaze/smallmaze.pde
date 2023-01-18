@@ -7,8 +7,8 @@ boolean exportSVG = false;
 
 int canvasSize = 800;
 
-int cellSize = 6;
-int mazeSize = 360;
+int cellSize = 2;
+int mazeSize = 300;
 
 int cells = mazeSize/cellSize;
 int margin = (canvasSize-mazeSize)/2;
@@ -170,7 +170,7 @@ void initControls() {
 		.addSlider("perlinXA")
 		.setLabel("perlinAmp")
 		.setRange(0, 100)
-		.setValue(100)
+		.setValue(32.32)
 		.setNumberOfTickMarks(100)
 		.setColorCaptionLabel(50)
 		;
@@ -179,7 +179,7 @@ void initControls() {
 		.addSlider("perlinXO")
 		.setLabel("perlinXOff")
 		.setRange(-100, 100)
-		.setValue(-33)
+		.setValue(-1)
 		.setNumberOfTickMarks(201)
 		.setPosition(10, 40)
 		.setColorCaptionLabel(50)
@@ -189,7 +189,7 @@ void initControls() {
 		.addSlider("perlinXD")
 		.setLabel("perlinXD")
 		.setRange(10, 1000)
-		.setValue(10)
+		.setValue(580)
 		.setPosition(10, 50)
 		.setColorCaptionLabel(50)
 		;
@@ -198,7 +198,7 @@ void initControls() {
 		.addSlider("perlinYA")
 		.setLabel("perlinYAmp")
 		.setRange(0, 100)
-		.setValue(66)
+		.setValue(100)
 		.setNumberOfTickMarks(100)
 		.setPosition(210, 30)
 		.setColorCaptionLabel(50)
@@ -208,7 +208,7 @@ void initControls() {
 		.addSlider("perlinYO")
 		.setLabel("perlinYOff")
 		.setRange(-100, 100)
-		.setValue(-17)
+		.setValue(-43)
 		.setNumberOfTickMarks(201)
 		.setPosition(210, 40)
 		.setColorCaptionLabel(50)
@@ -218,7 +218,7 @@ void initControls() {
 		.addSlider("perlinYD")
 		.setLabel("perlinYD")
 		.setRange(10, 1000)
-		.setValue(10)
+		.setValue(450)
 		.setPosition(210, 50)
 		.setColorCaptionLabel(50)
 		;
@@ -227,7 +227,7 @@ void initControls() {
 void setup() {
 	size(800, 800);
 	// svgs are twice the size with this set, don't want it for print
-	pixelDensity(2);
+	// pixelDensity(2);
 	noFill();
 	background(255);
 
