@@ -22,11 +22,12 @@ float perlinYD = 0;
 
 int stepSize = 1;
 
-// TODO: add line length variance?
-// also based on perlin noise?
 float lineLength = 10;
 int marginX = (w-xSize)/2;
 int marginY = (h-ySize)/2;
+
+int spaceX = 10;
+int spaceY = 10;
 
 void settings() {
 	size(w, h);
@@ -52,8 +53,8 @@ void draw() {
 	// rect(marginX, marginY, xSize, ySize);
 	// draw diagonal lines
 	// these are ending at xSize-margin
-	for (int i=marginX; i<xSize+marginX; i+=lineLength) {
-		for (int j=marginY; j<ySize+marginY; j+=lineLength) {
+	for (int i=marginX; i<xSize+marginX; i+=spaceX) {
+		for (int j=marginY; j<ySize+marginY; j+=spaceY) {
 			drawline(i, j);
 		}
 	}
@@ -71,15 +72,17 @@ void drawline(int x, int y) {
 	// random walk from 0 to lineLength
 	PVector v = new PVector(x, y);
 	beginShape();
-	vertex(v.x, v.y);
+	curveVertex(v.x, v.y);
+	// rotation should be cumulative
+	float a = 0;
 	for (int i=0; i<lineLength; i+=stepSize) {
 		// move stepsize in the direction at the current vertex
-		float a = theta(v);
+		a = theta(v);
 		float m = mag(v);
 		v.x += cos(a)*m;
 		v.y += sin(a)*m;
 		// then drop a vertex there
-		vertex(v.x, v.y);
+		curveVertex(v.x, v.y);
 	}
 	endShape();
 }
