@@ -56,27 +56,27 @@ public class Cell {
 
 // these should be unperturbed, and then be perturbed along the line
 void doLine(vec2 rawStart, vec2 rawEnd, int p) {
-		// continuously perturb lines along perturbation axis
-		// do multiple segments if the distance is greater than cellsize
-		vec2 start = rawStart.perturb();
-		vec2 end = rawEnd.perturb();
+	// continuously perturb lines along perturbation axis
+	// do multiple segments if the distance is greater than cellsize
+	vec2 start = rawStart.perturb();
+	vec2 end = rawEnd.perturb();
 
-		if (start.xydist(end) <= cellSize) {
-			line(
-				start.x, start.y,
-				end.x, end.y
-			);
-		} else {
-			// now we draw multi-point lines between perturbed coordinates
-			beginShape();
-			for (float i=0; i<=p; i++) {
-				// lerp the raw point between start and end
-				vec2 v = rawStart.selfLerp(rawEnd, i/p).perturb();
-				vertex(v.x, v.y);
-			}
-			endShape();
+	if (start.xydist(end) <= cellSize) {
+		line(
+			start.x, start.y,
+			end.x, end.y
+		);
+	} else {
+		// now we draw multi-point lines between perturbed coordinates
+		beginShape();
+		for (float i=0; i<=p; i++) {
+			// lerp the raw point between start and end
+			vec2 v = rawStart.selfLerp(rawEnd, i/p).perturb();
+			vertex(v.x, v.y);
 		}
+		endShape();
 	}
+}
 
 class vec2 {
 	float x;

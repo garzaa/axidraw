@@ -7,27 +7,35 @@ boolean exportSVG = false;
 
 int canvasSize = 800;
 
-int cellSize = 10;
-int mazeSize = 360;
+int cellHeight = 20;
+int cells = 20;
+float cellWidth = (float) (Math.sqrt(3)/2f) * cellHeight;
+float yRad = cellHeight/2f;
+float xRad = cellWidth/2f;
+float mazeWidth = cells * cellWidth;
+float mazeHeight = cells * cellHeight;
 
-int cells = mazeSize/cellSize;
-int margin = (canvasSize-mazeSize)/2;
-int pointsPerLine = 6;
+int pointsPerLine = 1;
 
-int N = 0b0001;
-int S = 0b0010;
-int E = 0b0100;
-int W = 0b1000;
+enum Direction {
+	NW, NE,
+	W, E,
+	SW, SE
+}
 
-ArrayList<Integer> D = new ArrayList<Integer>();
-Map<Integer, Integer> DY = new HashMap<Integer, Integer>();
-Map<Integer, Integer> DX = new HashMap<Integer, Integer>();
-Map<Integer, Integer> XD = new HashMap<Integer, Integer>();
-Map<Integer, Integer> YD = new HashMap<Integer, Integer>();
-Map<Integer, Integer> Opposite = new HashMap<Integer, Integer>();
+Map<Direction, vec2> offsets = new HashMap<Direction, vec2>();
+void initDicts() {
+	offsets.put(Direction.NW, new vec2( 0, -1));
+	offsets.put(Direction.NE, new vec2( 1, -1));
+	offsets.put(Direction.W,  new vec2( 0, -1));
+	offsets.put(Direction.E,  new vec2( 0,  1));
+	offsets.put(Direction.SW, new vec2( 0,  1));
+	offsets.put(Direction.SE, new vec2( 1,  1));
+}
 
 public class HexCell {
-	public int direction = 0;
+	public Set<Direction> directions = new HashSet<Direction>();
+	List<vec2> vertices = new ArrayList(6);
 	public int x = 0;
 	public int y = 0;
 	public boolean visited = false;
@@ -35,55 +43,52 @@ public class HexCell {
 	public HexCell(int x, int y) {
 		this.x = x;
 		this.y = y;
-	}
 
-	void draw() {
-		// start at top left corner
-		float px = x*cellSize - cellSize/2;
-		float py = y*cellSize - cellSize/2;
+		float px = x*cellWidth;
+		float py = y*cellHeight * 0.75f;
 
 		// then move left/right based on the index order
 		if (y % 2 == 0) {
-			px += cellSize/4;
+			px += cellWidth/4;
 		} else {
-			px -= cellSize/4;
+			px -= cellWidth/4;
 		}
 
-		vec2 tl = new vec2(px, py);
-		vec2 bl = new vec2(px, py+cellSize);
-		vec2 tr = new vec2(px+cellSize, py);
-		vec2 br = new vec2(px+cellSize, py+cellSize);
+		vertices.add(new vec2(px, 		py+yRad));
+		vertices.add(new vec2(px+xRad, py+yRad*0.5f));
+		vertices.add(new vec2(px+xRad, py-yRad*0.5f));
+		vertices.add(new vec2(px, 		py-yRad));
+		vertices.add(new vec2(px-xRad, py-yRad*0.5f));
+		vertices.add(new vec2(px-xRad, py+yRad*0.5f));
+	}
 
-		if ((x == cells-1) || ((direction&E) == 0)) doLine(tr, br, pointsPerLine);
-		if (x == 0 || ((direction&W) == 0)) doLine(tl, bl, pointsPerLine);
-		if ((y == cells-1) || ((direction&S) == 0)) doLine(bl, br, pointsPerLine);
-		if (y == 0 || ((direction&N) == 0)) doLine(tl, tr, pointsPerLine);
+	public List<vec2> getNeighborCoords() {
+		List<vec2> v = new LinkedList<vec2>();
+		for (Direction d : offsets.keySet()) {
+			v.add(offsets.get(d));
+		}
+		return v;
+	}
+
+	public boolean hasDirection(Direction d) {
+		return directions.contains(d);
+	}
+
+	void draw() {
+		// start at center
+
+		// draw the cell borders clockwise from the top
+		// https://stackoverflow.com/questions/33967062/how-to-render-a-hex-grid
+		// TODO: only draw necessary vertices
+		// just draw NW, NE, E (0-2) unless at the left side and below
+		// or at the right side and above
+		// or at the bottom
+		for (int i=0; i<vertices.size()-1; i++) {
+			doLine(vertices.get(i), vertices.get(i+1), pointsPerLine);
+		}
+		doLine(vertices.get(5), vertices.get(0), pointsPerLine);
 	}
 }
-
-// these should be unperturbed, and then be perturbed along the line
-void doLine(vec2 rawStart, vec2 rawEnd, int p) {
-		// continuously perturb lines along perturbation axis
-		// do multiple segments if the distance is greater than cellSize
-		vec2 start = rawStart.perturb();
-		vec2 end = rawEnd.perturb();
-
-		if (start.xydist(end) <= cellSize) {
-			line(
-				start.x, start.y,
-				end.x, end.y
-			);
-		} else {
-			// now we draw multi-point lines between perturbed coordinates
-			beginShape();
-			for (float i=0; i<=p; i++) {
-				// lerp the raw point between start and end
-				vec2 v = rawStart.selfLerp(rawEnd, i/p).perturb();
-				vertex(v.x, v.y);
-			}
-			endShape();
-		}
-	}
 
 class vec2 {
 	float x;
@@ -95,9 +100,11 @@ class vec2 {
 	}
 
 	public vec2 perturb() {
-		float cx = sin(y/p1/PI + o1) * a1;
-		cx *= sin(y/ampP/PI + ampO) * ampA;
-		float cy = 0;
+		float cx = noise(x/perlinXD + perlinXO, y/perlinXD + perlinXO, 0);
+		float cy = noise(x/perlinYD + perlinYO, y/perlinYD + perlinYO, 1000);
+		// need to map these from (0, 1) to (-1, 1) for centralizing them
+		cx = (cx*2 - 1)*perlinXA;
+		cy = (cy*2 - 1)*perlinYA;
 		return new vec2(x+cx, y+cy);
 	}
 
@@ -108,6 +115,11 @@ class vec2 {
 	public vec2 selfLerp(vec2 b, float t) {
 		return new vec2(lerp(x, b.x, t), lerp(y, b.y, t));
 	}
+
+	// no pass by value houghough
+	public vec2 add(vec2 b) {
+		return new vec2(this.x + b.x, this.y + b.y);
+	}
 }
 
 // store each cell as a bit-masked integer
@@ -117,33 +129,24 @@ Stack<HexCell> cellStack = new Stack<HexCell>();
 
 Random random;
 
-void initDicts() {
-	D.add(N);
-	D.add(S);
-	D.add(E);
-	D.add(W);
+// these should be unperturbed, and then be perturbed along the line
+void doLine(vec2 rawStart, vec2 rawEnd, int p) {
+	// continuously perturb lines along perturbation axis
+	line(rawStart.x, rawStart.y, rawEnd.x, rawEnd.y);
+	// vec2 start = rawStart;//.perturb();
+	// vec2 end = rawEnd;//.perturb();
 
-	// (0, 0) is at the top left
-	DY.put(E, 0);
-	DY.put(W, 0);
-	DY.put(N, -1);
-	DY.put(S, 1);
-
-	DX.put(E, 1);
-	DX.put(W, -1);
-	DX.put(N, 0);
-	DX.put(S, 0);
-
-	YD.put(-1, N);
-	YD.put(1, S);
-	XD.put(-1, W);
-	XD.put(1, E);
-
-
-	Opposite.put(N, S);
-	Opposite.put(S, N);
-	Opposite.put(E, W);
-	Opposite.put(W, E);
+	// do a multi-point line
+	// SVGs will export duplicate shapes, 1 stroke and 1 fill
+	// even if one of those isn't set
+	// which means the AxiDraw makes 2 passes on shapes (bad)
+	beginShape();
+	vec2 prev = null;
+	for (float i=0; i<=p; i++) {
+		vec2 v = rawStart.selfLerp(rawEnd, i/p);//.perturb();
+		vertex(v.x, v.y);
+	}
+	endShape();
 }
 
 void initRows() {
@@ -155,84 +158,80 @@ void initRows() {
 	}
 }
 
-// horizontal distortion
-float a1 = 0;
-float o1 = 0;
-float p1 = 0;
+// TODO: try this, but also switch back to sinewaves but vertical (for a drip effect)
+float perlinXA = 1;
+float perlinXO = 0;
+float perlinXD = 1;
 
-// horizontal distortion amplitude
-float ampA = 0;
-float ampO = 0;
-float ampP = 0;
+float perlinYA = 1;
+float perlinYO = 0;
+float perlinYD = 0;
 
 void initControls() {
 	cp5 = new ControlP5(this);
 	cp5
-		.addSlider("a1")
-		.setLabel("amplitude1")
+		.addSlider("perlinXA")
+		.setLabel("perlinAmp")
 		.setRange(0, 100)
-		.setValue(0)
+		.setValue(100)
 		.setNumberOfTickMarks(100)
 		.setColorCaptionLabel(50)
 		;
 	
 	cp5
-		.addSlider("o1")
-		.setLabel("offset1")
-		.setRange(-1, 1)
-		.setValue(-0.18)
-		.setNumberOfTickMarks(50)
+		.addSlider("perlinXO")
+		.setLabel("perlinXOff")
+		.setRange(-100, 100)
+		.setValue(-33)
+		.setNumberOfTickMarks(201)
 		.setPosition(10, 40)
 		.setColorCaptionLabel(50)
 		;
 
 	cp5
-		.addSlider("p1")
-		.setLabel("period1")
-		.setRange(0.01, 20)
-		.setValue(3)
+		.addSlider("perlinXD")
+		.setLabel("perlinXD")
+		.setRange(10, 1000)
+		.setValue(340)
 		.setPosition(10, 50)
 		.setColorCaptionLabel(50)
 		;
-
 	
 	cp5
-		.addSlider("ampA")
-		.setLabel("amplitudeStrength")
-		.setRange(-1, 1)
-		.setValue(0)
-		.setNumberOfTickMarks(50)
+		.addSlider("perlinYA")
+		.setLabel("perlinYAmp")
+		.setRange(0, 100)
+		.setValue(66)
+		.setNumberOfTickMarks(100)
 		.setPosition(210, 30)
 		.setColorCaptionLabel(50)
 		;
 	
 	cp5
-		.addSlider("ampO")
-		.setLabel("amplitudeOffset")
-		.setRange(-1, 1)
-		.setValue(0.02)
-		.setNumberOfTickMarks(50)
+		.addSlider("perlinYO")
+		.setLabel("perlinYOff")
+		.setRange(-100, 100)
+		.setValue(-17)
+		.setNumberOfTickMarks(201)
 		.setPosition(210, 40)
 		.setColorCaptionLabel(50)
 		;
 
 	cp5
-		.addSlider("ampP")
-		.setLabel("amplitudePeriod")
-		.setRange(0.01, 200)
-		.setValue(1)
+		.addSlider("perlinYD")
+		.setLabel("perlinYD")
+		.setRange(10, 1000)
+		.setValue(340)
 		.setPosition(210, 50)
 		.setColorCaptionLabel(50)
 		;
 }
-
 
 void setup() {
 	size(800, 800);
 	noFill();
 	background(255);
 
-	initControls();
 	initDicts();
 	initRows();
 
@@ -244,6 +243,9 @@ void setup() {
 	HexCell startHexCell = rows.get(x).get(y);
 	startHexCell.visited = true;
 	cellStack.push(startHexCell);
+
+	// turn this off for svg exporting
+	pixelDensity(displayDensity());
 }
 
 void draw() {
@@ -254,7 +256,7 @@ void draw() {
   	}
 
 	// while the stack isn't empty:
-	if (!cellStack.empty()) {
+	if (!cellStack.empty() && false) {
 		// pop a current cell
 		HexCell current = cellStack.pop();
 		// choose one of the unvisited neighbors
@@ -262,89 +264,63 @@ void draw() {
 		ArrayList<HexCell> neighbors = new ArrayList<HexCell>();
 		int cx = current.x;
 		int cy = current.y;
-		for (Integer direction : D) {
-			// get coordinates of the current neighbor
-			int nx = cx + DX.get(direction);
-			int ny = cy + DY.get(direction);
 
-			// if that neighbor is in the grid
-			if (nx>=0 && nx<cells && ny>=0 && ny<cells) {
-				// add that neighbor to the list of neighbors
-				HexCell neighborHexCell = rows.get(nx).get(ny);
-				if (!neighborHexCell.visited) {
-					neighbors.add(neighborHexCell);
-				}
-			}
-		}
+		// TODO: refactor this algorithm for hex grids
+		// need to prune neighbor coordinates too
+		// for (Integer direction : D) {
+		// 	// get coordinates of the current neighbor
+		// 	int nx = cx + DX.get(direction);
+		// 	int ny = cy + DY.get(direction);
+
+		// 	// if that neighbor is in the grid
+		// 	if (nx>=0 && nx<cells && ny>=0 && ny<cells) {
+		// 		// add that neighbor to the list of neighbors
+		// 		HexCell neighborHexCell = rows.get(nx).get(ny);
+		// 		if (!neighborHexCell.visited) {
+		// 			neighbors.add(neighborHexCell);
+		// 		}
+		// 	}
+		// }
 
 		// if there are unvisited neighbors
 		if (neighbors.size() > 0) {
-			// push current cell to the stack
-			cellStack.push(current);
+			// // push current cell to the stack
+			// cellStack.push(current);
 
-			// pick a random unvisited neighbor
-			HexCell chosenNeighbor = neighbors.get(random.nextInt(0, neighbors.size()));
-			// remove walls between it and the current cell
-			int dx = chosenNeighbor.x - current.x;
-			int dy = chosenNeighbor.y - current.y;
-			if (dx != 0) {
-				current.direction = current.direction | XD.get(dx);
-				chosenNeighbor.direction = chosenNeighbor.direction | XD.get(-dx);
-			}
-			if (dy != 0) {
-				current.direction = current.direction | YD.get(dy);
-				chosenNeighbor.direction = chosenNeighbor.direction | YD.get(-dy);
-			}
-			// mark the chosen cell as visited and push it to the stack
-			chosenNeighbor.visited = true;
-			cellStack.push(chosenNeighbor);
+			// // pick a random unvisited neighbor
+			// HexCell chosenNeighbor = neighbors.get(random.nextInt(0, neighbors.size()));
+			// // remove walls between it and the current cell
+			// int dx = chosenNeighbor.x - current.x;
+			// int dy = chosenNeighbor.y - current.y;
+			// if (dx != 0) {
+			// 	current.direction = current.direction | XD.get(dx);
+			// 	chosenNeighbor.direction = chosenNeighbor.direction | XD.get(-dx);
+			// }
+			// if (dy != 0) {
+			// 	current.direction = current.direction | YD.get(dy);
+			// 	chosenNeighbor.direction = chosenNeighbor.direction | YD.get(-dy);
+			// }
+			// // mark the chosen cell as visited and push it to the stack
+			// chosenNeighbor.visited = true;
+			// cellStack.push(chosenNeighbor);
 		}
 	}
 
 	drawMaze();
-	drawHelpers();
 
 	if (exportSVG) {
-    endRecord();
-    exportSVG = false;
-	cp5.setAutoDraw(true);
-    System.out.println("exported SVG");
-  }
-}
-
-void drawHelpers() {
-	if (exportSVG) return;
-	int p = pointsPerLine * cells;
-	push();
-		// first line: green sinewave
-		stroke(0xff00ff00);
-		vec2 baseStart = new vec2(100, 220);
-		vec2 baseEnd = new vec2(100, 220+360);
-		beginShape();
-		for (float i=0; i<=p; i++) {
-			// lerp the raw point between start and end
-			vec2 v = baseStart.selfLerp(baseEnd, i/p);
-			v.x += sin(v.y/p1/PI + o1) * a1 * 0.5;
-			vertex(v.x, v.y);
-		}
-		endShape();
-
-		// then the red line
-		stroke(0xffff0000);
-		beginShape();
-		for (float i=0; i<=p; i++) {
-			// lerp the raw point between start and end
-			vec2 v = baseStart.selfLerp(baseEnd, i/p);
-			v.x += sin(v.y/ampP/PI + ampO) * ampA * a1;
-			vertex(v.x, v.y);
-		}
-		endShape();
-	pop();
+		exportSVG = false;
+		endRecord();
+		cp5.setAutoDraw(true);
+		System.out.println("exported SVG");
+	}
 }
 
 void drawMaze() {
 	push();
-		translate(margin, margin);
+		translate((canvasSize-mazeWidth)/2f, (canvasSize-mazeHeight)/2f);
+		// and then start in the middle of the top left cell
+		translate(cellWidth/2f, cellHeight/2f);
 		for (int i=0; i<rows.size(); i++) {
 			for (int j=0; j<rows.get(i).size(); j++) {
 				rows.get(i).get(j).draw();
