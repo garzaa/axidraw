@@ -26,13 +26,13 @@ Map<Integer, Integer> XD = new HashMap<Integer, Integer>();
 Map<Integer, Integer> YD = new HashMap<Integer, Integer>();
 Map<Integer, Integer> Opposite = new HashMap<Integer, Integer>();
 
-public class Cell {
+public class HexCell {
 	public int direction = 0;
 	public int x = 0;
 	public int y = 0;
 	public boolean visited = false;
 
-	public Cell(int x, int y) {
+	public HexCell(int x, int y) {
 		this.x = x;
 		this.y = y;
 	}
@@ -42,22 +42,29 @@ public class Cell {
 		float px = x*cellSize - cellSize/2;
 		float py = y*cellSize - cellSize/2;
 
+		// then move left/right based on the index order
+		if (y % 2 == 0) {
+			px += cellSize/4;
+		} else {
+			px -= cellSize/4;
+		}
+
 		vec2 tl = new vec2(px, py);
 		vec2 bl = new vec2(px, py+cellSize);
 		vec2 tr = new vec2(px+cellSize, py);
 		vec2 br = new vec2(px+cellSize, py+cellSize);
 
 		if ((x == cells-1) || ((direction&E) == 0)) doLine(tr, br, pointsPerLine);
-		if (x == 0) doLine(tl, bl, pointsPerLine);
+		if (x == 0 || ((direction&W) == 0)) doLine(tl, bl, pointsPerLine);
 		if ((y == cells-1) || ((direction&S) == 0)) doLine(bl, br, pointsPerLine);
-		if (y == 0) doLine(tl, tr, pointsPerLine);
+		if (y == 0 || ((direction&N) == 0)) doLine(tl, tr, pointsPerLine);
 	}
 }
 
 // these should be unperturbed, and then be perturbed along the line
 void doLine(vec2 rawStart, vec2 rawEnd, int p) {
 		// continuously perturb lines along perturbation axis
-		// do multiple segments if the distance is greater than cellsize
+		// do multiple segments if the distance is greater than cellSize
 		vec2 start = rawStart.perturb();
 		vec2 end = rawEnd.perturb();
 
@@ -104,9 +111,9 @@ class vec2 {
 }
 
 // store each cell as a bit-masked integer
-ArrayList<ArrayList<Cell>> rows = new ArrayList<ArrayList<Cell>>();
+ArrayList<ArrayList<HexCell>> rows = new ArrayList<ArrayList<HexCell>>();
 
-Stack<Cell> cellStack = new Stack<Cell>();
+Stack<HexCell> cellStack = new Stack<HexCell>();
 
 Random random;
 
@@ -141,9 +148,9 @@ void initDicts() {
 
 void initRows() {
 	for (int x=0; x<cells; x++) {
-		rows.add(new ArrayList<Cell>());
+		rows.add(new ArrayList<HexCell>());
 		for (int y=0; y<cells; y++) {
-			rows.get(x).add(new Cell(x, y));
+			rows.get(x).add(new HexCell(x, y));
 		}
 	}
 }
@@ -164,7 +171,7 @@ void initControls() {
 		.addSlider("a1")
 		.setLabel("amplitude1")
 		.setRange(0, 100)
-		.setValue(100)
+		.setValue(0)
 		.setNumberOfTickMarks(100)
 		.setColorCaptionLabel(50)
 		;
@@ -193,7 +200,7 @@ void initControls() {
 		.addSlider("ampA")
 		.setLabel("amplitudeStrength")
 		.setRange(-1, 1)
-		.setValue(.55)
+		.setValue(0)
 		.setNumberOfTickMarks(50)
 		.setPosition(210, 30)
 		.setColorCaptionLabel(50)
@@ -219,6 +226,7 @@ void initControls() {
 		;
 }
 
+
 void setup() {
 	size(800, 800);
 	noFill();
@@ -233,9 +241,9 @@ void setup() {
 	// choose the initial cell, mark as visited and push to the stack
 	int x = random.nextInt(0, cells);
 	int y = random.nextInt(0, cells);
-	Cell startCell = rows.get(x).get(y);
-	startCell.visited = true;
-	cellStack.push(startCell);
+	HexCell startHexCell = rows.get(x).get(y);
+	startHexCell.visited = true;
+	cellStack.push(startHexCell);
 }
 
 void draw() {
@@ -248,10 +256,10 @@ void draw() {
 	// while the stack isn't empty:
 	if (!cellStack.empty()) {
 		// pop a current cell
-		Cell current = cellStack.pop();
+		HexCell current = cellStack.pop();
 		// choose one of the unvisited neighbors
 		// remove a wall between the current cell and the chosen cell
-		ArrayList<Cell> neighbors = new ArrayList<Cell>();
+		ArrayList<HexCell> neighbors = new ArrayList<HexCell>();
 		int cx = current.x;
 		int cy = current.y;
 		for (Integer direction : D) {
@@ -262,9 +270,9 @@ void draw() {
 			// if that neighbor is in the grid
 			if (nx>=0 && nx<cells && ny>=0 && ny<cells) {
 				// add that neighbor to the list of neighbors
-				Cell neighborCell = rows.get(nx).get(ny);
-				if (!neighborCell.visited) {
-					neighbors.add(neighborCell);
+				HexCell neighborHexCell = rows.get(nx).get(ny);
+				if (!neighborHexCell.visited) {
+					neighbors.add(neighborHexCell);
 				}
 			}
 		}
@@ -275,7 +283,7 @@ void draw() {
 			cellStack.push(current);
 
 			// pick a random unvisited neighbor
-			Cell chosenNeighbor = neighbors.get(random.nextInt(0, neighbors.size()));
+			HexCell chosenNeighbor = neighbors.get(random.nextInt(0, neighbors.size()));
 			// remove walls between it and the current cell
 			int dx = chosenNeighbor.x - current.x;
 			int dy = chosenNeighbor.y - current.y;
