@@ -23,7 +23,11 @@ enum Direction {
 	SW, SE
 }
 
+vec2 stripeOffset = new vec2(-1, 0);
+
 Map<Direction, vec2> offsets = new HashMap<Direction, vec2>();
+// every odd row has their NW/NE and SW/SE neighbors shifted left by 1
+Map<Direction, vec2> oddOffsets = new HashMap<Direction, vec2>();
 Map<Direction, Direction> opposites = new HashMap<Direction, Direction>();
 
 void initDicts() {
@@ -40,6 +44,13 @@ void initDicts() {
 	opposites.put(Direction.SE, Direction.NW);
 	opposites.put(Direction.SW, Direction.NE);
 	opposites.put(Direction.W, Direction.E);
+
+	oddOffsets.put(Direction.NW, new vec2( -1, -1));
+	oddOffsets.put(Direction.NE, new vec2( 0, -1));
+	oddOffsets.put(Direction.E,  new vec2( 1,  0));
+	oddOffsets.put(Direction.SE, new vec2( 0,  1));
+	oddOffsets.put(Direction.SW, new vec2( -1,  1));
+	oddOffsets.put(Direction.W,  new vec2( -1, 0));
 }
 
 public class HexCell {
@@ -49,22 +60,27 @@ public class HexCell {
 	public int y = 0;
 	public boolean visited = false;
 
+	public boolean highlighted = false;
+
+	public float px, py;
+
 	public HexCell(int x, int y) {
 		this.x = x;
 		this.y = y;
 
-		float px = x*cellWidth;
-		float py = y*cellHeight * 0.75f;
+		this.px = x*cellWidth;
+		this.py = y*cellHeight * 0.75f;
 
 		// then move left/right based on the index order
-		if (y % 2 == 0) {
+		if (isOdd()) {
 			px += cellWidth/4;
 		} else {
 			px -= cellWidth/4;
 		}
 
+
+		// Y has to be negative because origin is top left
 		// clockwise starting from the top (upper left NE vertex)
-		// also the Y has to be negative because origin is top left
 		vertices.add(new vec2(px, 		py-yRad));
 		vertices.add(new vec2(px+xRad, py-yRad*0.5f));
 		vertices.add(new vec2(px+xRad, py+yRad*0.5f));
@@ -74,10 +90,20 @@ public class HexCell {
 	}
 
 	public vec2 getNeighborCoords(Direction d) {
+		if (!isOdd()) {
+				return new vec2(
+				this.x + offsets.get(d).x,
+				this.y + offsets.get(d).y
+			);
+		}
 		return new vec2(
-			this.x + offsets.get(d).x,
-			this.y + offsets.get(d).y
+			this.x + oddOffsets.get(d).x,
+			this.y + oddOffsets.get(d).y
 		);
+	}
+
+	boolean isOdd() {
+		return y % 2 == 1;
 	}
 
 	public boolean hasConnection(Direction d) {
@@ -104,11 +130,42 @@ public class HexCell {
 		if (!hasConnection(Direction.SW)) drawSegment(3);
 		if (!hasConnection(Direction.W)) drawSegment(4);
 		if (!hasConnection(Direction.NW)) drawSegment(5);
+
+		push();
+		stroke(100);
+		if (isOdd() && !highlighted) {
+			ellipse(px, py, 4, 4);
+		}
+		
+		if (highlighted) {
+			stroke(0xffff0000);
+			line(px+2, py+2, px-2, py-2);
+			line(px-2, py+2, px+2, py-2);
+		}
+
+		stroke(0xff00ff00);
+		for (Direction d : connections) {
+			// this is interesting - it's trying to connect with
+			// something outside the grid after the reverse connection
+			// even numbered rows are visually 1 too far to the left
+			vec2 v = getNeighborCoords(d);
+			HexCell c = rows.get((int) v.x).get((int) v.y);
+			line(px, py, c.px, c.py);
+			if (isOdd()) {
+			}
+		}
+		pop();
 	}
 
 	void drawSegment(int startIndex) {
 		int c = vertices.size();
 		doLine(vertices.get(startIndex), vertices.get((startIndex+1) % c), pointsPerLine);
+	}
+
+	public String toString() {
+		String s = "(" + x + ", " + y + ")";
+		if (isOdd()) s += " (odd)";
+		return s;
 	}
 }
 
@@ -247,6 +304,11 @@ void initControls() {
 		.setPosition(210, 50)
 		.setColorCaptionLabel(50)
 		;
+
+	cp5
+		.addButton("step")
+		.setLabel("step")
+		;
 }
 
 void setup() {
@@ -256,6 +318,7 @@ void setup() {
 
 	initDicts();
 	initRows();
+	initControls();
 
 	random = new Random();
 
@@ -277,10 +340,26 @@ void draw() {
     	beginRecord(SVG, "exports/export_"+timestamp()+".svg");
   	}
 
+	drawMaze();
+
+	if (exportSVG) {
+		exportSVG = false;
+		endRecord();
+		cp5.setAutoDraw(true);
+		System.out.println("exported SVG");
+	}
+}
+
+HexCell current = null;
+
+void step() {
+	if (current != null) current.highlighted = false;
 	// while the stack isn't empty:
 	if (!cellStack.empty()) {
 		// pop a current cell
-		HexCell current = cellStack.pop();
+		current = cellStack.pop();
+		println("at "+current);
+		current.highlighted = true;
 		// choose one of the unvisited neighbors, then connect them
 		ArrayList<Direction> validNeighbors = new ArrayList<Direction>();
 
@@ -313,21 +392,15 @@ void draw() {
 			current.connect(d);
 			vec2 neighborCoords = current.getNeighborCoords(d);
 			HexCell neighbor = rows.get((int) neighborCoords.x).get((int) neighborCoords.y);
-			neighbor.connect(opposites.get(d));
+			// this will connect with shit outside the grid
+			// neighbor.connect(opposites.get(d));
+
+			println("connected " + current + " with neighbor "+neighbor+", direction "+d);
 
 			// mark the chosen cell as visited and push it to the stack
 			neighbor.visited = true;
 			cellStack.push(neighbor);
 		}
-	}
-
-	drawMaze();
-
-	if (exportSVG) {
-		exportSVG = false;
-		endRecord();
-		cp5.setAutoDraw(true);
-		System.out.println("exported SVG");
 	}
 }
 
