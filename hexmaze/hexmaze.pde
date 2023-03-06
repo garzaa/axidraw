@@ -7,13 +7,15 @@ boolean exportSVG = false;
 
 int canvasSize = 800;
 
-int cellHeight = 20;
-int cells = 20;
+int cellHeight = 10;
+int cells = 40;
 float cellWidth = (float) (Math.sqrt(3)/2f) * cellHeight;
 float yRad = cellHeight/2f;
 float xRad = cellWidth/2f;
 float mazeWidth = cells * cellWidth;
 float mazeHeight = cells * cellHeight;
+
+float cellSpacing = 1;
 
 int pointsPerLine = 2;
 
@@ -124,33 +126,51 @@ public class HexCell {
 		// or at the right side and above
 		// or at the bottom
 
+		// always draw the top three
+		if (!hasConnection(Direction.NW)) drawSegment(5);
 		if (!hasConnection(Direction.NE)) drawSegment(0);
 		if (!hasConnection(Direction.E)) drawSegment(1);
-		if (!hasConnection(Direction.SE)) drawSegment(2);
-		if (!hasConnection(Direction.SW)) drawSegment(3);
-		if (!hasConnection(Direction.W)) drawSegment(4);
-		if (!hasConnection(Direction.NW)) drawSegment(5);
+
+		// if on the bottom, draw the bottom two (4 and 8 oclock)
+		if (
+			y == cells-1
+		) {
+			drawSegment(3);
+			drawSegment(2);
+		}
+
+		// but also take care of when it's jutting out on the side
+		if ((isOdd() && x==0)) {
+			drawSegment(3);
+		} else if (!isOdd() && x==cells-1) {
+			drawSegment(2);
+		}
+
+		// then if on the left side, draw the left
+		if (x == 0) {
+			drawSegment(4);
+		}
 
 		push();
 		stroke(100);
-		if (isOdd() && !highlighted) {
-			ellipse(px, py, 4, 4);
-		}
+		// if (isOdd() && !highlighted) {
+		// 	ellipse(px, py, 4, 4);
+		// }
 		
 		if (highlighted) {
-			stroke(0xffff0000);
-			line(px+2, py+2, px-2, py-2);
-			line(px-2, py+2, px+2, py-2);
+			// stroke(0xffff0000);
+			// strokeWeight(2);
+			// line(px+5, py+5, px-5, py-5);
+			// line(px-5, py+5, px+5, py-5);
 		}
 
-		stroke(0xff00ff00);
 		for (Direction d : connections) {
 			// this is interesting - it's trying to connect with
 			// something outside the grid after the reverse connection
 			// even numbered rows are visually 1 too far to the left
 			vec2 v = getNeighborCoords(d);
 			HexCell c = rows.get((int) v.x).get((int) v.y);
-			line(px, py, c.px, c.py);
+			// line(px, py, c.px, c.py);
 			if (isOdd()) {
 			}
 		}
@@ -210,26 +230,17 @@ Random random;
 
 // these should be unperturbed, and then be perturbed along the line
 void doLine(vec2 rawStart, vec2 rawEnd, int p) {
-	// continuously perturb lines along perturbation axis
-	line(rawStart.x, rawStart.y, rawEnd.x, rawEnd.y);
-	// vec2 start = rawStart;//.perturb();
-	// vec2 end = rawEnd;//.perturb();
-
-	// do a multi-point line
-	// SVGs will export duplicate shapes, 1 stroke and 1 fill
-	// even if one of those isn't set
-	// which means the AxiDraw makes 2 passes on shapes (bad)
 	beginShape();
 	vec2 prev = null;
 	for (float i=0; i<=p; i++) {
-		vec2 v = rawStart.selfLerp(rawEnd, i/p);//.perturb();
-		vertex(v.x, v.y);
+		vec2 v = rawStart.selfLerp(rawEnd, i/p).perturb();
+		vertex(v.x * cellSpacing, v.y * cellSpacing);
 	}
 	endShape();
 }
 
 void initRows() {
-	for (int x=0; x<cells; x++) {
+	utofor (int x=0; x<cells; x++) {
 		rows.add(new ArrayList<HexCell>());
 		for (int y=0; y<cells; y++) {
 			rows.get(x).add(new HexCell(x, y));
@@ -305,9 +316,14 @@ void initControls() {
 		.setColorCaptionLabel(50)
 		;
 
+	
 	cp5
-		.addButton("step")
-		.setLabel("step")
+		.addSlider("cellSpacing")
+		.setLabel("cellSpacing")
+		.setRange(1, 1.5)
+		.setValue(1.2)
+		.setPosition(210, 60)
+		.setColorCaptionLabel(50)
 		;
 }
 
@@ -315,6 +331,9 @@ void setup() {
 	size(800, 800);
 	noFill();
 	background(255);
+
+	xRad *= cellSpacing;
+	yRad *= cellSpacing;
 
 	initDicts();
 	initRows();
@@ -341,6 +360,7 @@ void draw() {
   	}
 
 	drawMaze();
+	step();
 
 	if (exportSVG) {
 		exportSVG = false;
@@ -358,7 +378,6 @@ void step() {
 	if (!cellStack.empty()) {
 		// pop a current cell
 		current = cellStack.pop();
-		println("at "+current);
 		current.highlighted = true;
 		// choose one of the unvisited neighbors, then connect them
 		ArrayList<Direction> validNeighbors = new ArrayList<Direction>();
@@ -393,11 +412,9 @@ void step() {
 			vec2 neighborCoords = current.getNeighborCoords(d);
 			HexCell neighbor = rows.get((int) neighborCoords.x).get((int) neighborCoords.y);
 			// this will connect with shit outside the grid
-			// neighbor.connect(opposites.get(d));
+			neighbor.connect(opposites.get(d));
 
-			println("connected " + current + " with neighbor "+neighbor+", direction "+d);
-
-			// mark the chosen cell as visited and push it to the stack
+			// mark the chosen cell as visited and push it to the stk
 			neighbor.visited = true;
 			cellStack.push(neighbor);
 		}
