@@ -24,6 +24,8 @@ enum Direction {
 }
 
 Map<Direction, vec2> offsets = new HashMap<Direction, vec2>();
+Map<Direction, Direction> opposites = new HashMap<Direction, Direction>();
+
 void initDicts() {
 	offsets.put(Direction.NW, new vec2( 0, -1));
 	offsets.put(Direction.NE, new vec2( 1, -1));
@@ -31,10 +33,17 @@ void initDicts() {
 	offsets.put(Direction.E,  new vec2( 0,  1));
 	offsets.put(Direction.SW, new vec2( 0,  1));
 	offsets.put(Direction.SE, new vec2( 1,  1));
+
+	opposites.put(Direction.NW, Direction.SE);
+	opposites.put(Direction.NE, Direction.SW);
+	opposites.put(Direction.E, Direction.W);
+	opposites.put(Direction.SE, Direction.NW);
+	opposites.put(Direction.SW, Direction.NE);
+	opposites.put(Direction.W, Direction.E);
 }
 
 public class HexCell {
-	public Set<Direction> directions = new HashSet<Direction>();
+	public Set<Direction> connections = new HashSet<Direction>();
 	List<vec2> vertices = new ArrayList(6);
 	public int x = 0;
 	public int y = 0;
@@ -62,19 +71,22 @@ public class HexCell {
 		vertices.add(new vec2(px-xRad, py+yRad*0.5f));
 	}
 
-	public List<vec2> getNeighborCoords() {
-		List<vec2> v = new LinkedList<vec2>();
-		for (Direction d : offsets.keySet()) {
-			v.add(offsets.get(d));
-		}
-		return v;
+	public vec2 getNeighborCoords(Direction d) {
+		return new vec2(
+			this.x + offsets.get(d).x,
+			this.y + offsets.get(d).y
+		);
 	}
 
-	public boolean hasDirection(Direction d) {
-		return directions.contains(d);
+	public boolean hasConnection(Direction d) {
+		return connections.contains(d);
 	}
 
-	void draw() {
+	public void connect(Direction d) {
+		connections.add(d);
+	}
+
+	public void draw() {
 		// start at center
 
 		// draw the cell borders clockwise from the top
@@ -256,53 +268,46 @@ void draw() {
   	}
 
 	// while the stack isn't empty:
-	if (!cellStack.empty() && false) {
+	if (!cellStack.empty()) {
 		// pop a current cell
 		HexCell current = cellStack.pop();
-		// choose one of the unvisited neighbors
-		// remove a wall between the current cell and the chosen cell
-		ArrayList<HexCell> neighbors = new ArrayList<HexCell>();
-		int cx = current.x;
-		int cy = current.y;
+		// choose one of the unvisited neighbors, then connect them
+		ArrayList<Direction> validNeighbors = new ArrayList<Direction>();
 
-		// TODO: refactor this algorithm for hex grids
-		// need to prune neighbor coordinates too
-		// for (Integer direction : D) {
-		// 	// get coordinates of the current neighbor
-		// 	int nx = cx + DX.get(direction);
-		// 	int ny = cy + DY.get(direction);
-
-		// 	// if that neighbor is in the grid
-		// 	if (nx>=0 && nx<cells && ny>=0 && ny<cells) {
-		// 		// add that neighbor to the list of neighbors
-		// 		HexCell neighborHexCell = rows.get(nx).get(ny);
-		// 		if (!neighborHexCell.visited) {
-		// 			neighbors.add(neighborHexCell);
-		// 		}
-		// 	}
-		// }
+		// get all directions first
+		for (Direction d : offsets.keySet()) {
+			vec2 nc = current.getNeighborCoords(d);
+			// if it's in the grid
+			if (
+				nc.x >= 0
+				&& nc.x < cells
+				&& nc.y >= 0
+				&& nc.y < cells
+			) {
+				// then add its cell to the list of unvisited neighbors
+				if (!rows.get((int) nc.x).get((int) nc.y).visited) {
+					validNeighbors.add(d);
+				}
+			}
+		}
 
 		// if there are unvisited neighbors
-		if (neighbors.size() > 0) {
-			// // push current cell to the stack
-			// cellStack.push(current);
+		if (validNeighbors.size() > 0) {
+			// push current cell to the stack
+			cellStack.push(current);
 
-			// // pick a random unvisited neighbor
-			// HexCell chosenNeighbor = neighbors.get(random.nextInt(0, neighbors.size()));
-			// // remove walls between it and the current cell
-			// int dx = chosenNeighbor.x - current.x;
-			// int dy = chosenNeighbor.y - current.y;
-			// if (dx != 0) {
-			// 	current.direction = current.direction | XD.get(dx);
-			// 	chosenNeighbor.direction = chosenNeighbor.direction | XD.get(-dx);
-			// }
-			// if (dy != 0) {
-			// 	current.direction = current.direction | YD.get(dy);
-			// 	chosenNeighbor.direction = chosenNeighbor.direction | YD.get(-dy);
-			// }
-			// // mark the chosen cell as visited and push it to the stack
-			// chosenNeighbor.visited = true;
-			// cellStack.push(chosenNeighbor);
+			// pick a random neighbor from the list of available coordinates
+			Direction d = validNeighbors.get(random.nextInt(0, validNeighbors.size()));
+
+			// then connect the two
+			current.connect(d);
+			vec2 neighborCoords = current.getNeighborCoords(d);
+			HexCell neighbor = rows.get((int) neighborCoords.x).get((int) neighborCoords.y);
+			neighbor.connect(opposites.get(d));
+
+			// mark the chosen cell as visited and push it to the stack
+			neighbor.visited = true;
+			cellStack.push(neighbor);
 		}
 	}
 
