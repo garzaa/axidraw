@@ -15,7 +15,7 @@ float xRad = cellWidth/2f;
 float mazeWidth = cells * cellWidth;
 float mazeHeight = cells * cellHeight;
 
-int pointsPerLine = 1;
+int pointsPerLine = 2;
 
 enum Direction {
 	NW, NE,
@@ -29,10 +29,10 @@ Map<Direction, Direction> opposites = new HashMap<Direction, Direction>();
 void initDicts() {
 	offsets.put(Direction.NW, new vec2( 0, -1));
 	offsets.put(Direction.NE, new vec2( 1, -1));
-	offsets.put(Direction.W,  new vec2( 0, -1));
-	offsets.put(Direction.E,  new vec2( 0,  1));
-	offsets.put(Direction.SW, new vec2( 0,  1));
+	offsets.put(Direction.E,  new vec2( 1,  0));
 	offsets.put(Direction.SE, new vec2( 1,  1));
+	offsets.put(Direction.SW, new vec2( 0,  1));
+	offsets.put(Direction.W,  new vec2( -1, 0));
 
 	opposites.put(Direction.NW, Direction.SE);
 	opposites.put(Direction.NE, Direction.SW);
@@ -63,12 +63,14 @@ public class HexCell {
 			px -= cellWidth/4;
 		}
 
-		vertices.add(new vec2(px, 		py+yRad));
-		vertices.add(new vec2(px+xRad, py+yRad*0.5f));
-		vertices.add(new vec2(px+xRad, py-yRad*0.5f));
+		// clockwise starting from the top (upper left NE vertex)
+		// also the Y has to be negative because origin is top left
 		vertices.add(new vec2(px, 		py-yRad));
-		vertices.add(new vec2(px-xRad, py-yRad*0.5f));
+		vertices.add(new vec2(px+xRad, py-yRad*0.5f));
+		vertices.add(new vec2(px+xRad, py+yRad*0.5f));
+		vertices.add(new vec2(px, 		py+yRad));
 		vertices.add(new vec2(px-xRad, py+yRad*0.5f));
+		vertices.add(new vec2(px-xRad, py-yRad*0.5f));
 	}
 
 	public vec2 getNeighborCoords(Direction d) {
@@ -95,10 +97,18 @@ public class HexCell {
 		// just draw NW, NE, E (0-2) unless at the left side and below
 		// or at the right side and above
 		// or at the bottom
-		for (int i=0; i<vertices.size()-1; i++) {
-			doLine(vertices.get(i), vertices.get(i+1), pointsPerLine);
-		}
-		doLine(vertices.get(5), vertices.get(0), pointsPerLine);
+
+		if (!hasConnection(Direction.NE)) drawSegment(0);
+		if (!hasConnection(Direction.E)) drawSegment(1);
+		if (!hasConnection(Direction.SE)) drawSegment(2);
+		if (!hasConnection(Direction.SW)) drawSegment(3);
+		if (!hasConnection(Direction.W)) drawSegment(4);
+		if (!hasConnection(Direction.NW)) drawSegment(5);
+	}
+
+	void drawSegment(int startIndex) {
+		int c = vertices.size();
+		doLine(vertices.get(startIndex), vertices.get((startIndex+1) % c), pointsPerLine);
 	}
 }
 
