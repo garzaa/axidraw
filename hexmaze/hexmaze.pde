@@ -73,9 +73,9 @@ public class HexCell {
 
 		// then move left/right based on the index order
 		if (isOdd()) {
-			px += cellWidth/4;
-		} else {
 			px -= cellWidth/4;
+		} else {
+			px += cellWidth/4;
 		}
 
 
