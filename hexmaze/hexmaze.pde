@@ -7,13 +7,16 @@ boolean exportSVG = false;
 
 int canvasSize = 800;
 
-int cellHeight = 10;
+int cellHeight = 15;
 int cells = 40;
 float cellWidth = (float) (Math.sqrt(3)/2f) * cellHeight;
 float yRad = cellHeight/2f;
 float xRad = cellWidth/2f;
 float mazeWidth = cells * cellWidth;
-float mazeHeight = cells * cellHeight;
+float mazeHeight = cells * cellHeight * 0.75f;
+
+boolean drawBorders = true;
+boolean drawConnections = false;
 
 float cellSpacing = 1;
 
@@ -127,32 +130,34 @@ public class HexCell {
 		// or at the bottom
 
 		// always draw the top three
-		if (!hasConnection(Direction.NW)) drawSegment(5);
-		if (!hasConnection(Direction.NE)) drawSegment(0);
-		if (!hasConnection(Direction.E)) drawSegment(1);
+		if (drawBorders) {
+			if (!hasConnection(Direction.NW)) drawSegment(5);
+			if (!hasConnection(Direction.NE)) drawSegment(0);
+			if (!hasConnection(Direction.E)) drawSegment(1);
 
-		// if on the bottom, draw the bottom two (4 and 8 oclock)
-		if (
-			y == cells-1
-		) {
-			drawSegment(3);
-			drawSegment(2);
-		}
+			// if on the bottom, draw the bottom two (4 and 8 oclock)
+			if (
+				y == cells-1
+			) {
+				drawSegment(3);
+				drawSegment(2);
+			}
 
-		// but also take care of when it's jutting out on the side
-		if ((isOdd() && x==0)) {
-			drawSegment(3);
-		} else if (!isOdd() && x==cells-1) {
-			drawSegment(2);
-		}
+			// but also take care of when it's jutting out on the side
+			if ((isOdd() && x==0)) {
+				drawSegment(3);
+			} else if (!isOdd() && x==cells-1) {
+				drawSegment(2);
+			}
 
-		// then if on the left side, draw the left
-		if (x == 0) {
-			drawSegment(4);
+			// then if on the left side, draw the left
+			if (x == 0) {
+				drawSegment(4);
+			}
 		}
 
 		push();
-		stroke(100);
+		// stroke(100);
 		// if (isOdd() && !highlighted) {
 		// 	ellipse(px, py, 4, 4);
 		// }
@@ -163,15 +168,14 @@ public class HexCell {
 			// line(px+5, py+5, px-5, py-5);
 			// line(px-5, py+5, px+5, py-5);
 		}
-
-		for (Direction d : connections) {
-			// this is interesting - it's trying to connect with
-			// something outside the grid after the reverse connection
-			// even numbered rows are visually 1 too far to the left
-			vec2 v = getNeighborCoords(d);
-			HexCell c = rows.get((int) v.x).get((int) v.y);
-			// line(px, py, c.px, c.py);
-			if (isOdd()) {
+		if (drawConnections) {
+			for (Direction d : connections) {
+				// this is interesting - it's trying to connect with
+				// something outside the grid after the reverse connection
+				// even numbered rows are visually 1 too far to the left
+				vec2 v = getNeighborCoords(d);
+				HexCell c = rows.get((int) v.x).get((int) v.y);
+				line(px, py, c.px, c.py);
 			}
 		}
 		pop();
@@ -240,7 +244,7 @@ void doLine(vec2 rawStart, vec2 rawEnd, int p) {
 }
 
 void initRows() {
-	utofor (int x=0; x<cells; x++) {
+	for (int x=0; x<cells; x++) {
 		rows.add(new ArrayList<HexCell>());
 		for (int y=0; y<cells; y++) {
 			rows.get(x).add(new HexCell(x, y));
@@ -330,7 +334,6 @@ void initControls() {
 void setup() {
 	size(800, 800);
 	noFill();
-	background(255);
 
 	xRad *= cellSpacing;
 	yRad *= cellSpacing;
@@ -349,18 +352,22 @@ void setup() {
 	cellStack.push(startHexCell);
 
 	// turn this off for svg exporting
-	pixelDensity(displayDensity());
+	// pixelDensity(displayDensity());
+	carve();
 }
 
 void draw() {
-	background(255);
+	strokeWeight(3);
+	//background(0x84ACCE);
+	//stroke(0xffD7D9B1);
+	background(200);
+	stroke(50);
 
 	if (exportSVG) {
     	beginRecord(SVG, "exports/export_"+timestamp()+".svg");
   	}
 
 	drawMaze();
-	step();
 
 	if (exportSVG) {
 		exportSVG = false;
@@ -372,10 +379,10 @@ void draw() {
 
 HexCell current = null;
 
-void step() {
+void carve() {
 	if (current != null) current.highlighted = false;
 	// while the stack isn't empty:
-	if (!cellStack.empty()) {
+	while (!cellStack.empty()) {
 		// pop a current cell
 		current = cellStack.pop();
 		current.highlighted = true;
@@ -412,13 +419,16 @@ void step() {
 			vec2 neighborCoords = current.getNeighborCoords(d);
 			HexCell neighbor = rows.get((int) neighborCoords.x).get((int) neighborCoords.y);
 			// this will connect with shit outside the grid
-			neighbor.connect(opposites.get(d));
+			if (drawBorders) {
+				neighbor.connect(opposites.get(d));
+			}
 
 			// mark the chosen cell as visited and push it to the stk
 			neighbor.visited = true;
 			cellStack.push(neighbor);
 		}
 	}
+	current.highlighted = false;
 }
 
 void drawMaze() {
@@ -441,6 +451,9 @@ void keyPressed() {
 		exportSVG = true;
 	} else if (key == 'q') {
 		exit();
+	} else if (key == 's') {
+		save("exports/"+timestamp()+".png");
+		println("saved png");
 	}
 }
 
