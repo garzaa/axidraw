@@ -168,6 +168,7 @@ public class HexCell {
 					int xm = isOdd() ? 1 : 0;
 					int nm = isOdd() ? 0 : -1;
 
+					// ONLY NEED TO DO THREE OF THESE THANK CHRIST
 					if (d == Direction.SW) {
 						// SE, we want 1 left of self (this can be outside boundaries)
 						tempCell(x-1, y).drawArc(Direction.SE, Direction.S);
@@ -178,6 +179,11 @@ public class HexCell {
 						tempCell(x - xm, y+1).drawArc(Direction.NE, Direction.SE);
 						// and one above target
 						tempCell(n.x - nm, n.y-1).drawArc(Direction.NW, Direction.SW);
+					} else if (d == Direction.SE) {
+						// se, one right of self draws bottom and bottom left
+						tempCell(x+1, y).drawArc(Direction.S, Direction.SW);
+						// and one left of target? draws top, top right
+						tempCell(n.x-1, n.y).drawArc(Direction.N, Direction.NE);
 					}
 				}
 
