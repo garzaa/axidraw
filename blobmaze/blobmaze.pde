@@ -8,8 +8,8 @@ boolean exportSVG = false;
 int canvasSize = 800;
 
 // maze params
-int cellHeight = 40;
-int cells = 10;
+int cellHeight = 30;
+int cells = 20;
 int bg = 200;
 int strokeColor = 50;
 
@@ -252,7 +252,7 @@ void setup() {
 	grid = new HexGrid(cells, cells);
 
 	// turn off for svg exports
-	pixelDensity(displayDensity());
+	// pixelDensity(displayDensity());
 }
 
 void draw() {
@@ -270,23 +270,25 @@ void draw() {
 	if (exportSVG) {
 		exportSVG = false;
 		endRecord();
-		cp5.setAutoDraw(true);
+		// cp5.setAutoDraw(true);
 		System.out.println("exported SVG");
 	}
+}
 
-	void keyPressed() {
-		if (key == 'e') {
-			System.out.println("exporting SVG");
-			cp5.setAutoDraw(false);
-			exportSVG = true;
-		} else if (key == 'q') {
-			exit();
-		}
+void keyPressed() {
+	if (key == 'e') {
+		System.out.println("exporting SVG");
+		// cp5.setAutoDraw(false);
+		exportSVG = true;
+	} else if (key == 'q') {
+		exit();
+	} else if (key == 's') {
+		save("exports/"+timestamp()+".png");
+		println("saved png");
 	}
+}
 
-	String timestamp() {
-	Calendar now = Calendar.getInstance();
-	return String.format("%1$ty%1$tm%1$td_%1$tH%1$tM%1$tS", now);
-	}
-
+String timestamp() {
+  Calendar now = Calendar.getInstance();
+  return String.format("%1$ty%1$tm%1$td_%1$tH%1$tM%1$tS", now);
 }
