@@ -101,11 +101,15 @@ public class vec2 {
 	}
 }
 
+public HexCell tempCell(float x, float y) {
+	return new HexCell((int) x, (int) y, null);
+}
+
 public class HexCell {
 	Map<Direction, HexCell> connections = new HashMap<Direction, HexCell>();
 	Map<HexCell, Direction> neighbors = new HashMap<HexCell, Direction>();
-	float x, y;
-	float px, py;
+	public float x, y;
+	public float px, py;
 
 	boolean filled = false;
 	public boolean visited = false;
@@ -133,7 +137,7 @@ public class HexCell {
 		dirMap = isOdd() ? oddOffsets : offsets;
 
 		int rowOffset = isOdd() ? 0 : -1;
-		filled = (x + rowOffset)  % 3 == 0;
+		filled = ((x + rowOffset) % 3) == 0;
 	}
 
 	public void connect(Direction d, HexCell c) {
@@ -146,22 +150,54 @@ public class HexCell {
 
 	public void draw() {
 		if (filled) {
-			// ellipse(px, py, cellWidth, cellWidth);
+			// connecting lines to neighbors
 			for (HexCell c : connections.values()) {
 				vec2 v = c.worldPos();
-				line(px, py, v.x, v.y);
+				// line(px, py, v.x, v.y);
 			}
 
-			// first, draw closed segments
 			for (Direction d : directions) {
 				if (!connections.containsKey(d)) {
+					// first, draw closed segments
 					drawArc(directionArcs.get(d));
+				} else {
+					// now the hard part...draw additional cells' arcs
+					HexCell n = connections.get(d);
+
+					// x offsets are gonna be FUN with alternating rows
+					int xm = isOdd() ? 1 : 0;
+					int nm = isOdd() ? 0 : -1;
+
+					if (d == Direction.SW) {
+						// SE, we want 1 left of self (this can be outside boundaries)
+						tempCell(x-1, y).drawArc(Direction.SE, Direction.S);
+						// and 1 right of the connection
+						tempCell(n.x+1, n.y).drawArc(Direction.NW, Direction.N);
+					} else if (d == Direction.S) {
+						// s, one below self
+						tempCell(x - xm, y+1).drawArc(Direction.NE, Direction.SE);
+						// and one above target
+						tempCell(n.x - nm, n.y-1).drawArc(Direction.NW, Direction.SW);
+					}
 				}
+
 			}
 		} else {
-			// line(px+4, py+4, px-4, py-4);
-			// line(px-4, py+4, px+4, py-4);
+			// stroke(150);
+			// ellipse(px, py, cellWidth*0.8f, cellWidth*0.8f);
+			// line(px+2, py+2, px-2, py-2);
+			// line(px-2, py+2, px+2, py-2);
+			// stroke(strokeColor);
 		}
+	}
+
+	public void drawArc(Direction d1, Direction d2) {
+		drawArc(directionArcs.get(d1));
+		drawArc(directionArcs.get(d2));
+	}
+
+	public void drawArc(Direction d) {
+		drawArc(directionArcs.get(d));
 	}
 
 	public void drawArc(int segmentNum) {
@@ -169,7 +205,8 @@ public class HexCell {
 		// arcs always want clockwise
 		float a = (segmentNum * (TWO_PI/6f)) - (PI/2F) - (PI/6f);
 		float b = ((segmentNum + 1) * (TWO_PI/6f)) - (PI/2F) - (PI/6f);
-		arc(px, py, cellWidth, cellWidth, a, b);
+		float rad = filled ? cellWidth * 1.2f : cellWidth * 0.8f;
+		arc(px, py, rad, rad, a, b);
 	}
 
 	public void addNeighbors() {
@@ -325,6 +362,8 @@ void setup() {
 	pixelDensity(displayDensity());
 
 	carve();
+
+	noLoop();
 }
 
 void draw() {
