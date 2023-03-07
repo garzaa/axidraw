@@ -10,8 +10,8 @@ int canvasSize = 800;
 // maze params
 int cellHeight = 40;
 int cells = 10;
-int bg = 200;
-int strokeColor = 50;
+int bg = 0xff0D3B66;
+int strokeColor = 0xfffaf0ca;
 
 // plumbing
 float cellWidth = (float) (Math.sqrt(3)/2f) * cellHeight;
@@ -98,7 +98,6 @@ public class HexCell {
 	float px, py;
 
 	boolean filled = false;
-	public boolean visited = false;
 
 	HexGrid grid;
 
@@ -259,6 +258,7 @@ void setup() {
 void draw() {
 	background(bg);
 	stroke(strokeColor);
+	strokeWeight(2);
 
 	if (exportSVG) {
     	beginRecord(SVG, "exports/export_"+timestamp()+".svg");
@@ -289,4 +289,3 @@ String timestamp() {
 	Calendar now = Calendar.getInstance();
 	return String.format("%1$ty%1$tm%1$td_%1$tH%1$tM%1$tS", now);
 }
-
