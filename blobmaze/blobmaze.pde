@@ -43,6 +43,8 @@ Map<Direction, Direction> opposites = new HashMap<Direction, Direction>();
 
 Set<Direction> directions;
 
+Map<Direction, Integer> directionArcs = new HashMap<Direction, Integer>();
+
 void initDicts() {
 	offsets.put(Direction.N,  new vec2( 0, -2));
 	offsets.put(Direction.NW, new vec2(-1, -1));
@@ -64,6 +66,13 @@ void initDicts() {
 	oddOffsets.put(Direction.SW, new vec2(-2,  1));
 	oddOffsets.put(Direction.SE, new vec2( 1,  1));
 	oddOffsets.put(Direction.S,  new vec2( 0,  2));
+
+	directionArcs.put(Direction.N,  0);
+	directionArcs.put(Direction.NE, 1);
+	directionArcs.put(Direction.SE, 2);
+	directionArcs.put(Direction.S,  3);
+	directionArcs.put(Direction.SW, 4);
+	directionArcs.put(Direction.NW, 5);
 
 	directions = offsets.keySet();
 }
@@ -137,27 +146,29 @@ public class HexCell {
 
 	public void draw() {
 		if (filled) {
-			ellipse(px, py, cellWidth, cellWidth);
+			// ellipse(px, py, cellWidth, cellWidth);
 			for (HexCell c : connections.values()) {
 				vec2 v = c.worldPos();
 				line(px, py, v.x, v.y);
+			}
+
+			// first, draw closed segments
+			for (Direction d : directions) {
+				if (!connections.containsKey(d)) {
+					drawArc(directionArcs.get(d));
+				}
 			}
 		} else {
 			// line(px+4, py+4, px-4, py-4);
 			// line(px-4, py+4, px+4, py-4);
 		}
-		// drawArc(0);
-		// for (HexCell cell : neighbors.keySet()) {
-		// 	vec2 v = cell.worldPos();
-		// 	line(px, py, v.x, v.y);
-		// }
 	}
 
 	public void drawArc(int segmentNum) {
 		// 6 segments, clockwise from 12 oclock
 		// arcs always want clockwise
-		float a = (segmentNum * (TWO_PI/6f)) - (PI/2F);
-		float b = ((segmentNum + 1) * (TWO_PI/6f)) - (PI/2F);
+		float a = (segmentNum * (TWO_PI/6f)) - (PI/2F) - (PI/6f);
+		float b = ((segmentNum + 1) * (TWO_PI/6f)) - (PI/2F) - (PI/6f);
 		arc(px, py, cellWidth, cellWidth, a, b);
 	}
 
@@ -324,13 +335,12 @@ void draw() {
     	beginRecord(SVG, "exports/export_"+timestamp()+".svg");
   	}
 
-
 	grid.draw();
 
 	if (exportSVG) {
 		exportSVG = false;
 		endRecord();
-		cp5.setAutoDraw(true);
+		// cp5.setAutoDraw(true);
 		System.out.println("exported SVG");
 	}
 }
@@ -338,7 +348,7 @@ void draw() {
 void keyPressed() {
 	if (key == 'e') {
 		System.out.println("exporting SVG");
-		cp5.setAutoDraw(false);
+		// cp5.setAutoDraw(false);
 		exportSVG = true;
 	} else if (key == 'q') {
 		exit();
