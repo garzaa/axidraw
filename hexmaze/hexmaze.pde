@@ -25,8 +25,6 @@ enum Direction {
 	SW, SE
 }
 
-vec2 stripeOffset = new vec2(-1, 0);
-
 Map<Direction, vec2> offsets = new HashMap<Direction, vec2>();
 // every odd row has their NW/NE and SW/SE neighbors shifted left by 1
 Map<Direction, vec2> oddOffsets = new HashMap<Direction, vec2>();
@@ -240,7 +238,7 @@ void doLine(vec2 rawStart, vec2 rawEnd, int p) {
 }
 
 void initRows() {
-	utofor (int x=0; x<cells; x++) {
+	for (int x=0; x<cells; x++) {
 		rows.add(new ArrayList<HexCell>());
 		for (int y=0; y<cells; y++) {
 			rows.get(x).add(new HexCell(x, y));
