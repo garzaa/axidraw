@@ -27,10 +27,12 @@ float marginY = (canvasSize - mazeHeight)/2f;
 
 HexGrid grid;
 
+// these are stored at corners now, not faces
 public enum Direction {
-	NW, NE,
-	W, E,
-	SW, SE
+	N,
+  NW, NE,
+  SW, SE,
+	S
 }
 
 Map<Direction, vec2> offsets = new HashMap<Direction, vec2>();
@@ -41,26 +43,26 @@ Map<Direction, Direction> opposites = new HashMap<Direction, Direction>();
 Set<Direction> directions;
 
 void initDicts() {
-	offsets.put(Direction.NW, new vec2( 0, -1));
-	offsets.put(Direction.NE, new vec2( 1, -1));
-	offsets.put(Direction.E,  new vec2( 1,  0));
-	offsets.put(Direction.SE, new vec2( 1,  1));
-	offsets.put(Direction.SW, new vec2( 0,  1));
-	offsets.put(Direction.W,  new vec2( -1, 0));
+	offsets.put(Direction.N,  new vec2( 0, -2));
+	offsets.put(Direction.NW, new vec2(-1, -1));
+	offsets.put(Direction.NE, new vec2( 2, -1));
+	offsets.put(Direction.SW, new vec2(-1,  1));
+	offsets.put(Direction.SE, new vec2( 2,  1));
+	offsets.put(Direction.S,  new vec2( 0,  2));
 
+	opposites.put(Direction.N,  Direction.S );
 	opposites.put(Direction.NW, Direction.SE);
 	opposites.put(Direction.NE, Direction.SW);
-	opposites.put(Direction.E, Direction.W);
-	opposites.put(Direction.SE, Direction.NW);
 	opposites.put(Direction.SW, Direction.NE);
-	opposites.put(Direction.W, Direction.E);
+	opposites.put(Direction.SE, Direction.NW);
+	opposites.put(Direction.S,  Direction.N );
 
-	oddOffsets.put(Direction.NW, new vec2( -1, -1));
-	oddOffsets.put(Direction.NE, new vec2( 0, -1));
-	oddOffsets.put(Direction.E,  new vec2( 1,  0));
-	oddOffsets.put(Direction.SE, new vec2( 0,  1));
-	oddOffsets.put(Direction.SW, new vec2( -1,  1));
-	oddOffsets.put(Direction.W,  new vec2( -1, 0));
+	oddOffsets.put(Direction.N,  new vec2( 0, -2));
+	oddOffsets.put(Direction.NW, new vec2(-2, -1));
+	oddOffsets.put(Direction.NE, new vec2( 1, -1));
+	oddOffsets.put(Direction.SW, new vec2(-2,  1));
+	oddOffsets.put(Direction.SE, new vec2( 1,  1));
+	oddOffsets.put(Direction.S,  new vec2( 0,  2));
 
 	directions = offsets.keySet();
 }
@@ -83,11 +85,15 @@ public class vec2 {
 	public vec2 scale(float s) {
 		return new vec2(this.x * s, this.y * s);
 	}
+
+	public String toString() {
+		return "("+x+", "+y+")";
+	}
 }
 
 public class HexCell {
 	Set<Direction> connections = new HashSet<Direction>();
-	Set<Direction> neighborDirections = new HashSet<Direction>();
+	Map<Direction, HexCell> neighbors = new HashMap<Direction, HexCell>();
 	float x, y;
 	float px, py;
 
@@ -121,9 +127,6 @@ public class HexCell {
 		// then fill based on the offset
 		int rowOffset = isOdd() ? 0 : -1;
 		filled = (x + rowOffset)  % 3 == 0;
-
-
-		addNeighborDirections();
 	}
 
 	public void connect(Direction d) {
@@ -139,14 +142,20 @@ public class HexCell {
 	}
 
 	public void draw() {
-		ellipse(px, py, cellWidth, cellWidth);
 		if (filled) {
-			ellipse(px, py, cellWidth/2f, cellWidth/2f);
+			ellipse(px, py, cellWidth, cellWidth);
+		} else {
+			line(px+4, py+4, px-4, py-4);
+			line(px-4, py+4, px+4, py-4);
 		}
 		// drawArc(0);
+		for (HexCell cell : neighbors.values()) {
+			vec2 v = cell.worldPos();
+			line(px, py, v.x, v.y);
+		}
 	}
 
-	void drawArc(int segmentNum) {
+	public void drawArc(int segmentNum) {
 		// 6 segments, clockwise from 12 oclock
 		// arcs always want clockwise
 		float a = (segmentNum * (TWO_PI/6f)) - (PI/2F);
@@ -154,12 +163,29 @@ public class HexCell {
 		arc(px, py, cellWidth, cellWidth, a, b);
 	}
 
-	public void addNeighborDirections() {
-
+	public void addNeighbors() {
+		// for each direction
+		for (Direction d : directions) {
+			// if the cell in that direction is in bounds
+			vec2 cellCoords = gridPos().add(dirMap.get(d));
+			if (grid.inBounds(cellCoords)) {
+				// then get the cell at that position
+				// and add it to neighbors
+				neighbors.put(d, grid.get(cellCoords));
+			}
+		}
 	}
 
-	public boolean hasNeighborDirection(Direction d) {
-		return neighborDirections.contains(d);
+	public vec2 worldPos() {
+		return new vec2(px, py);
+	}
+
+	public vec2 gridPos() {
+		return new vec2(x, y);
+	}
+
+	public boolean isFilled() {
+		return filled;
 	}
 }
 
@@ -179,6 +205,14 @@ public class HexGrid {
 		}
 
 		// second pass: connect them in a checkerboard
+		for (int x=0; x<xSize; x++) {
+			for (int y=0; y<ySize; y++) {
+				HexCell cell = get(x, y);
+				if (cell.isFilled()) {
+					cell.addNeighbors();
+				}
+			}
+		}
 	}
 
 	public void draw() {
@@ -201,11 +235,12 @@ public class HexGrid {
 	}
 
 	public boolean inBounds(int x, int y) {
-		return x > 0 && x < cells && y > 0 && y < cells;
+		return x >= 0 && x < cells && y >= 0 && y < cells;
 	}
 
 	public boolean inBounds(vec2 v) {
-		return inBounds((int) v.x, (int) v.y);
+		boolean b =  inBounds((int) v.x, (int) v.y);
+		return b;
 	}
 }
 
