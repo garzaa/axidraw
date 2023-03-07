@@ -26,6 +26,7 @@ float marginX = (canvasSize - mazeWidth)/2f;
 float marginY = (canvasSize - mazeHeight)/2f;
 
 HexGrid grid;
+Random random;
 
 // these are stored at corners now, not faces
 public enum Direction {
@@ -92,8 +93,8 @@ public class vec2 {
 }
 
 public class HexCell {
-	Set<Direction> connections = new HashSet<Direction>();
-	Map<Direction, HexCell> neighbors = new HashMap<Direction, HexCell>();
+	Map<Direction, HexCell> connections = new HashMap<Direction, HexCell>();
+	Map<HexCell, Direction> neighbors = new HashMap<HexCell, Direction>();
 	float x, y;
 	float px, py;
 
@@ -105,18 +106,15 @@ public class HexCell {
 	Map<Direction, vec2> dirMap;
 
 	public HexCell(int x, int y, HexGrid grid) {
+		this.grid = grid;
+		
 		this.x = x;
 		this.y = y;
 
 		this.px = x*cellWidth;
 		this.py = y*cellHeight * 0.75f;
 
-		this.grid = grid;
 
-		// then move left/right based on the index order
-		// put this at the end so it only gets caught by the render loop
-		// ideally should put it in the render loop, but whatever
-		// just don't reference px and py after this block
 		if (isOdd()) {
 			px -= cellWidth/4;
 		} else {
@@ -125,17 +123,12 @@ public class HexCell {
 
 		dirMap = isOdd() ? oddOffsets : offsets;
 
-		// then fill based on the offset
 		int rowOffset = isOdd() ? 0 : -1;
 		filled = (x + rowOffset)  % 3 == 0;
 	}
 
-	public void connect(Direction d) {
-		connections.add(d);
-	}
-
-	public boolean hasConnection(Direction d) {
-		return connections.contains(d);
+	public void connect(Direction d, HexCell c) {
+		connections.put(d, c);
 	}
 
 	boolean isOdd() {
@@ -145,15 +138,19 @@ public class HexCell {
 	public void draw() {
 		if (filled) {
 			ellipse(px, py, cellWidth, cellWidth);
+			for (HexCell c : connections.values()) {
+				vec2 v = c.worldPos();
+				line(px, py, v.x, v.y);
+			}
 		} else {
-			line(px+4, py+4, px-4, py-4);
-			line(px-4, py+4, px+4, py-4);
+			// line(px+4, py+4, px-4, py-4);
+			// line(px-4, py+4, px+4, py-4);
 		}
 		// drawArc(0);
-		for (HexCell cell : neighbors.values()) {
-			vec2 v = cell.worldPos();
-			line(px, py, v.x, v.y);
-		}
+		// for (HexCell cell : neighbors.keySet()) {
+		// 	vec2 v = cell.worldPos();
+		// 	line(px, py, v.x, v.y);
+		// }
 	}
 
 	public void drawArc(int segmentNum) {
@@ -172,9 +169,17 @@ public class HexCell {
 			if (grid.inBounds(cellCoords)) {
 				// then get the cell at that position
 				// and add it to neighbors
-				neighbors.put(d, grid.get(cellCoords));
+				neighbors.put(grid.get(cellCoords), d);
 			}
 		}
+	}
+
+	public List<HexCell> getUnvisitedNeighbors() {
+		List<HexCell> n = new LinkedList<HexCell>();
+		for (HexCell c : neighbors.keySet()) {
+			if (!c.visited) n.add(c);
+		}
+		return n;
 	}
 
 	public vec2 worldPos() {
@@ -187,6 +192,10 @@ public class HexCell {
 
 	public boolean isFilled() {
 		return filled;
+	}
+
+	public Direction getNeighborDirection(HexCell c) {
+		return neighbors.get(c);
 	}
 }
 
@@ -243,9 +252,58 @@ public class HexGrid {
 		boolean b =  inBounds((int) v.x, (int) v.y);
 		return b;
 	}
+
+	public HexCell randomFilledCell() {
+		List<HexCell> cells = new LinkedList<HexCell>();
+		for (List<HexCell> row : rows) {
+			for (HexCell cell : row) {
+				if (cell.isFilled()) {
+					cells.add(cell);
+				}
+			}
+		}
+
+		return cells.get(random.nextInt(cells.size()));
+	}
+}
+
+void carve() {
+	Stack<HexCell> cellStack = new Stack<HexCell>();
+
+	// THIS NEEDS TO BE A FILLED CELL
+	HexCell startCell = grid.randomFilledCell();
+
+	startCell.visited = true;
+	cellStack.push(startCell);
+
+	// while the cell stack isn't empty
+	while (!cellStack.empty()) {
+		// pop a cell, make it current
+		HexCell current = cellStack.pop();
+		
+		// choose an unvisited neighbor, then connect them
+		List<HexCell> neighbors = current.getUnvisitedNeighbors();
+		// if there's a valid neighbor
+		if (!neighbors.isEmpty()) {
+			HexCell targetNeighbor = neighbors.get(random.nextInt(neighbors.size()));
+			// push the current cell to the stack
+			cellStack.push(current);
+
+			// connect the two
+			Direction direction = current.getNeighborDirection(targetNeighbor);
+			current.connect(direction, targetNeighbor);
+			targetNeighbor.connect(opposites.get(direction), current);
+
+			// mark the chosen cell as visited and push it to the stack
+			targetNeighbor.visited = true;
+			cellStack.push(targetNeighbor);
+		}
+
+	}
 }
 
 void setup() {
+	random = new Random();
 	size(800, 800);
 	noFill();
 	initDicts();
@@ -254,6 +312,8 @@ void setup() {
 
 	// turn off for svg exports
 	pixelDensity(displayDensity());
+
+	carve();
 }
 
 void draw() {
