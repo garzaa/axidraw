@@ -28,8 +28,6 @@ enum Direction {
 	SW, SE
 }
 
-vec2 stripeOffset = new vec2(-1, 0);
-
 Map<Direction, vec2> offsets = new HashMap<Direction, vec2>();
 // every odd row has their NW/NE and SW/SE neighbors shifted left by 1
 Map<Direction, vec2> oddOffsets = new HashMap<Direction, vec2>();
