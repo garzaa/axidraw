@@ -8,8 +8,8 @@ boolean exportSVG = false;
 int canvasSize = 800;
 
 // maze params
-int cellHeight = 40;
-int cells = 10;
+int cellHeight = 20;
+int cells = 20;
 int bg = 200;
 int strokeColor = 50;
 
@@ -211,7 +211,7 @@ public class HexCell {
 		// arcs always want clockwise
 		float a = (segmentNum * (TWO_PI/6f)) - (PI/2F) - (PI/6f);
 		float b = ((segmentNum + 1) * (TWO_PI/6f)) - (PI/2F) - (PI/6f);
-		float rad = filled ? cellWidth * 1.2f : cellWidth * 0.8f;
+		float rad = filled ? cellWidth * 1.3f : cellWidth * 0.7f;
 		arc(px, py, rad, rad, a, b);
 	}
 
@@ -369,7 +369,6 @@ void setup() {
 
 	carve();
 
-	noLoop();
 }
 
 void draw() {
