@@ -250,11 +250,43 @@ void setup() {
 	initDicts();
 
 	grid = new HexGrid(cells, cells);
+
+	// turn off for svg exports
+	pixelDensity(displayDensity());
 }
 
 void draw() {
 	background(bg);
 	stroke(strokeColor);
 	stroke(2);
+
+	if (exportSVG) {
+    	beginRecord(SVG, "exports/export_"+timestamp()+".svg");
+  	}
+
+
 	grid.draw();
+
+	if (exportSVG) {
+		exportSVG = false;
+		endRecord();
+		cp5.setAutoDraw(true);
+		System.out.println("exported SVG");
+	}
+
+	void keyPressed() {
+		if (key == 'e') {
+			System.out.println("exporting SVG");
+			cp5.setAutoDraw(false);
+			exportSVG = true;
+		} else if (key == 'q') {
+			exit();
+		}
+	}
+
+	String timestamp() {
+	Calendar now = Calendar.getInstance();
+	return String.format("%1$ty%1$tm%1$td_%1$tH%1$tM%1$tS", now);
+	}
+
 }
