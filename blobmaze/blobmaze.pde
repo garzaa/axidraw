@@ -81,7 +81,16 @@ public class HexCell {
 	}
 
 	public void draw() {
-		ellipse(px, py, cellWidth, cellWidth);
+		// ellipse(px, py, cellWidth, cellWidth);
+		drawArc(0);
+	}
+
+	void drawArc(int segmentNum) {
+		// 6 segments, clockwise from 12 oclock
+		// arcs always want clockwise
+		float a = (segmentNum * (TWO_PI/6f)) - (PI/2F);
+		float b = ((segmentNum + 1) * (TWO_PI/6f)) - (PI/2F);
+		arc(px, py, cellWidth, cellWidth, a, b);
 	}
 }
 
@@ -107,12 +116,6 @@ public class HexGrid {
 					cell.draw();
 				}
 			}
-
-			push();
-				stroke(0xffff0000);
-				HexCell h = get(2, 9);
-				ellipse(h.px, h.py, 4, 4);
-			pop();
 		pop();
 	}
 
