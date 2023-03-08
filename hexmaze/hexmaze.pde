@@ -7,13 +7,15 @@ boolean exportSVG = false;
 
 int canvasSize = 800;
 
-int cellHeight = 15;
-int cells = 40;
+int cellHeight = 45;
+int cells = 15;
 float cellWidth = (float) (Math.sqrt(3)/2f) * cellHeight;
 float yRad = cellHeight/2f;
 float xRad = cellWidth/2f;
 float mazeWidth = cells * cellWidth;
 float mazeHeight = cells * cellHeight * 0.75f;
+float marginX = (canvasSize - mazeWidth)/2f;
+float marginY = (canvasSize - mazeHeight)/2f;
 
 boolean drawBorders = true;
 boolean drawConnections = false;
@@ -27,6 +29,12 @@ enum Direction {
 	W, E,
 	SW, SE
 }
+
+vec2 stripeOffset = new vec2(-1, 0);
+
+color cn = #C5AFA4;
+color fg = #031927;
+color bg = #BA1200;
 
 Map<Direction, vec2> offsets = new HashMap<Direction, vec2>();
 // every odd row has their NW/NE and SW/SE neighbors shifted left by 1
@@ -129,6 +137,7 @@ public class HexCell {
 
 		// always draw the top three
 		if (drawBorders) {
+			stroke(fg);
 			if (!hasConnection(Direction.NW)) drawSegment(5);
 			if (!hasConnection(Direction.NE)) drawSegment(0);
 			if (!hasConnection(Direction.E)) drawSegment(1);
@@ -162,11 +171,11 @@ public class HexCell {
 		
 		if (highlighted) {
 			// stroke(0xffff0000);
-			// strokeWeight(2);
 			// line(px+5, py+5, px-5, py-5);
 			// line(px-5, py+5, px+5, py-5);
 		}
 		if (drawConnections) {
+			stroke(cn);
 			for (Direction d : connections) {
 				// this is interesting - it's trying to connect with
 				// something outside the grid after the reverse connection
@@ -259,13 +268,16 @@ float perlinYA = 1;
 float perlinYO = 0;
 float perlinYD = 0;
 
+ColorPicker FG;
+ColorPicker BG;
+
 void initControls() {
 	cp5 = new ControlP5(this);
 	cp5
 		.addSlider("perlinXA")
 		.setLabel("perlinAmp")
 		.setRange(0, 100)
-		.setValue(100)
+		.setValue(0)
 		.setNumberOfTickMarks(100)
 		.setColorCaptionLabel(50)
 		;
@@ -293,7 +305,7 @@ void initControls() {
 		.addSlider("perlinYA")
 		.setLabel("perlinYAmp")
 		.setRange(0, 100)
-		.setValue(66)
+		.setValue(0)
 		.setNumberOfTickMarks(100)
 		.setPosition(210, 30)
 		.setColorCaptionLabel(50)
@@ -315,16 +327,6 @@ void initControls() {
 		.setRange(10, 1000)
 		.setValue(340)
 		.setPosition(210, 50)
-		.setColorCaptionLabel(50)
-		;
-
-	
-	cp5
-		.addSlider("cellSpacing")
-		.setLabel("cellSpacing")
-		.setRange(1, 1.5)
-		.setValue(1.2)
-		.setPosition(210, 60)
 		.setColorCaptionLabel(50)
 		;
 }
@@ -350,16 +352,14 @@ void setup() {
 	cellStack.push(startHexCell);
 
 	// turn this off for svg exporting
-	// pixelDensity(displayDensity());
+	pixelDensity(displayDensity());
 	carve();
 }
 
 void draw() {
-	strokeWeight(3);
-	//background(0x84ACCE);
-	//stroke(0xffD7D9B1);
-	background(200);
-	stroke(50);
+	strokeWeight(10);
+	background(bg);
+	stroke(fg);
 
 	if (exportSVG) {
     	beginRecord(SVG, "exports/export_"+timestamp()+".svg");
@@ -431,9 +431,8 @@ void carve() {
 
 void drawMaze() {
 	push();
-		translate((canvasSize-mazeWidth)/2f, (canvasSize-mazeHeight)/2f);
-		// and then start in the middle of the top left cell
-		translate(cellWidth/2f, cellHeight/2f);
+			float mod = cells % 2 == 0 ? 1f : 0.5f;
+			translate(marginX+cellWidth*mod, marginY+cellHeight * mod);
 		for (int i=0; i<rows.size(); i++) {
 			for (int j=0; j<rows.get(i).size(); j++) {
 				rows.get(i).get(j).draw();

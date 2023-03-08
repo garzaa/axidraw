@@ -8,10 +8,10 @@ boolean exportSVG = false;
 int canvasSize = 800;
 
 // maze params
-int cellHeight = 40;
-int cells = 20;
-int bg = 200;
-int strokeColor = 50;
+int cellHeight = 45;
+int cells = 15;
+int bg = 0xffee609c;
+int fg = 255;
 
 // plumbing
 float cellWidth = (float) (Math.sqrt(3)/2f) * cellHeight;
@@ -108,6 +108,7 @@ public HexCell tempCell(float x, float y) {
 public class HexCell {
 	Map<Direction, HexCell> connections = new HashMap<Direction, HexCell>();
 	Map<HexCell, Direction> neighbors = new HashMap<HexCell, Direction>();
+	float rad;
 	public float x, y;
 	public float px, py;
 
@@ -138,6 +139,7 @@ public class HexCell {
 
 		int rowOffset = isOdd() ? 0 : -1;
 		filled = ((x + rowOffset) % 3) == 0;
+		this.rad = filled ? cellWidth * 1.3f : cellWidth * 0.7f;
 	}
 
 	public void connect(Direction d, HexCell c) {
@@ -148,21 +150,48 @@ public class HexCell {
 		return y%2 == 1;
 	}
 
-	public void draw() {
+	public void drawBG() {
+		if (filled) {
+			fill(fg);
+			stroke(fg);
+			ellipse(px, py, rad, rad);
+			// then draw directional stuff
+			for (Direction d : directions) {
+				if (connections.containsKey(d)) {
+					// now the hard part...draw additional cells' arcs
+					// first: draw a circle of the FG color halfway between them
+					HexCell n = connections.get(d);
+
+					ellipse(
+						(px + n.px) / 2f,
+						(py + n.py) / 2f,
+						cellWidth * 0.7f,
+						cellWidth * 0.7f
+					);
+				}
+			}
+		}
+	}
+
+	public void drawFG() {
+		// so if filled, first draw just a basic circle
 		if (filled) {
 			// connecting lines to neighbors
-			for (HexCell c : connections.values()) {
-				vec2 v = c.worldPos();
-				// line(px, py, v.x, v.y);
-			}
+			// for (HexCell c : connections.values()) {
+			// 	vec2 v = c.worldPos();
+			// 	// line(px, py, v.x, v.y);
+			// }
+			// stroke(fg);
 
 			for (Direction d : directions) {
-				if (!connections.containsKey(d)) {
-					// first, draw closed segments
-					drawArc(directionArcs.get(d));
-				} else {
+				if (connections.containsKey(d)) {
 					// now the hard part...draw additional cells' arcs
+					// first: draw a circle of the FG color halfway between them
 					HexCell n = connections.get(d);
+
+					// then carve BG colored arcs out of it
+					noFill();
+					stroke(fg);
 
 					// x offsets are gonna be FUN with alternating rows
 					int xm = isOdd() ? 1 : 0;
@@ -186,14 +215,13 @@ public class HexCell {
 						tempCell(n.x-1, n.y).drawArc(Direction.N, Direction.NE);
 					}
 				}
-
 			}
-		} else {
-			// stroke(150);
-			// ellipse(px, py, cellWidth*0.8f, cellWidth*0.8f);
-			// line(px+2, py+2, px-2, py-2);
-			// line(px-2, py+2, px+2, py-2);
-			// stroke(strokeColor);
+		}
+
+		if (!filled) {
+			fill(bg);
+			noStroke();
+			// ellipse(px, py, rad, rad);
 		}
 	}
 
@@ -209,10 +237,12 @@ public class HexCell {
 	public void drawArc(int segmentNum) {
 		// 6 segments, clockwise from 12 oclock
 		// arcs always want clockwise
+		fill(bg);
+		stroke(fg);
 		float a = (segmentNum * (TWO_PI/6f)) - (PI/2F) - (PI/6f);
 		float b = ((segmentNum + 1) * (TWO_PI/6f)) - (PI/2F) - (PI/6f);
-		float rad = filled ? cellWidth * 1.3f : cellWidth * 0.7f;
-		arc(px, py, rad, rad, a, b);
+
+		arc(px, py, rad, rad, a - 0.02, b);
 	}
 
 	public void addNeighbors() {
@@ -281,11 +311,17 @@ public class HexGrid {
 
 	public void draw() {
 		push();
-			
-			translate(marginX+cellWidth*0.5f, marginY+cellHeight/2f);
+			float mod = cells % 2 == 0 ? 0.5f : 1f;
+			translate(marginX+cellWidth*mod, marginY+cellHeight * mod);
 			for (List<HexCell> row : rows) {
 				for (HexCell cell : row) {
-					cell.draw();
+					cell.drawBG();
+				}
+			}
+
+			for (List<HexCell> row : rows) {
+				for (HexCell cell : row) {
+					cell.drawFG();
 				}
 			}
 		pop();
@@ -366,15 +402,16 @@ void setup() {
 	grid = new HexGrid(cells, cells);
 
 	// turn off for svg exports
-	// pixelDensity(displayDensity());
+	pixelDensity(2);
 
 	carve();
 
+	strokeWeight(1);
+	noStroke();
 }
 
 void draw() {
 	background(bg);
-	stroke(strokeColor);
 
 	if (exportSVG) {
     	beginRecord(SVG, "exports/export_"+timestamp()+".svg");

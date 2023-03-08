@@ -8,10 +8,10 @@ boolean exportSVG = false;
 int canvasSize = 800;
 
 // maze params
-int cellHeight = 40;
+int cellHeight = 60;
 int cells = 10;
-int bg = 0xff0D3B66;
-int strokeColor = 0xfffaf0ca;
+int bg = 0xff3003d9;
+int strokeColor = 255;
 
 // plumbing
 float cellWidth = (float) (Math.sqrt(3)/2f) * cellHeight;
@@ -217,7 +217,8 @@ public class HexGrid {
 
 	public void draw() {
 		push();
-			translate(marginX, marginY);
+			float mod = cells % 2 == 0 ? 0.5f : 1f;
+			translate(marginX+cellWidth*mod, marginY+cellHeight * mod);
 			for (List<HexCell> row : rows) {
 				for (HexCell cell : row) {
 					cell.draw();
@@ -270,7 +271,7 @@ void draw() {
 	if (exportSVG) {
 		exportSVG = false;
 		endRecord();
-		cp5.setAutoDraw(true);
+		// cp5.setAutoDraw(true);
 		System.out.println("exported SVG");
 	}
 }
@@ -278,12 +279,16 @@ void draw() {
 void keyPressed() {
 	if (key == 'e') {
 		System.out.println("exporting SVG");
-		cp5.setAutoDraw(false);
+		// cp5.setAutoDraw(false);
 		exportSVG = true;
 	} else if (key == 'q') {
 		exit();
+	} else if (key == 's') {
+		save("exports/"+timestamp()+".png");
+		println("saved png");
 	}
 }
+
 
 String timestamp() {
 	Calendar now = Calendar.getInstance();
