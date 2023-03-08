@@ -2,3 +2,4 @@ exports/*
 data/*
 *.svg
 *.png
+.DS_Store
