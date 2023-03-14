@@ -7,8 +7,9 @@ boolean exportSVG = false;
 
 int canvasSize = 800;
 
-int cellHeight = 45;
-int cells = 15;
+int cellHeight = 20;
+int cells = 30;
+
 float cellWidth = (float) (Math.sqrt(3)/2f) * cellHeight;
 float yRad = cellHeight/2f;
 float xRad = cellWidth/2f;
@@ -17,8 +18,9 @@ float mazeHeight = cells * cellHeight * 0.75f;
 float marginX = (canvasSize - mazeWidth)/2f;
 float marginY = (canvasSize - mazeHeight)/2f;
 
-boolean drawBorders = true;
-boolean drawConnections = false;
+boolean drawBorders = false;
+boolean drawConnections = true;
+boolean solved = true;
 
 float cellSpacing = 1;
 
@@ -32,14 +34,16 @@ enum Direction {
 
 vec2 stripeOffset = new vec2(-1, 0);
 
-color cn = #C5AFA4;
-color fg = #031927;
-color bg = #BA1200;
+color cn = #eb5e28;
+color fg = #403d39;
+color bg = #fffcf2;
 
 Map<Direction, vec2> offsets = new HashMap<Direction, vec2>();
 // every odd row has their NW/NE and SW/SE neighbors shifted left by 1
 Map<Direction, vec2> oddOffsets = new HashMap<Direction, vec2>();
 Map<Direction, Direction> opposites = new HashMap<Direction, Direction>();
+
+Set<Direction> directions;
 
 void initDicts() {
 	offsets.put(Direction.NW, new vec2( 0, -1));
@@ -62,6 +66,8 @@ void initDicts() {
 	oddOffsets.put(Direction.SE, new vec2( 0,  1));
 	oddOffsets.put(Direction.SW, new vec2( -1,  1));
 	oddOffsets.put(Direction.W,  new vec2( -1, 0));
+
+	directions = offsets.keySet();
 }
 
 public class HexCell {
@@ -111,6 +117,17 @@ public class HexCell {
 			this.x + oddOffsets.get(d).x,
 			this.y + oddOffsets.get(d).y
 		);
+	}
+
+	public List<HexCell> getConnections() {
+		List<HexCell> connectedNeighbors = new LinkedList<HexCell>();
+		for (Direction d : directions) {
+			if (hasConnection(d)) {
+				vec2 c = getNeighborCoords(d);
+				connectedNeighbors.add(rows.get((int) c.x).get((int) c.y));
+			}
+		}
+		return connectedNeighbors;
 	}
 
 	boolean isOdd() {
@@ -175,11 +192,8 @@ public class HexCell {
 			// line(px-5, py+5, px+5, py-5);
 		}
 		if (drawConnections) {
-			stroke(cn);
+			stroke(fg);
 			for (Direction d : connections) {
-				// this is interesting - it's trying to connect with
-				// something outside the grid after the reverse connection
-				// even numbered rows are visually 1 too far to the left
 				vec2 v = getNeighborCoords(d);
 				HexCell c = rows.get((int) v.x).get((int) v.y);
 				line(px, py, c.px, c.py);
@@ -234,8 +248,9 @@ class vec2 {
 
 // store each cell as a bit-masked integer
 ArrayList<ArrayList<HexCell>> rows = new ArrayList<ArrayList<HexCell>>();
-
 Stack<HexCell> cellStack = new Stack<HexCell>();
+
+List<HexCell> solutionPath = new LinkedList<HexCell>();
 
 Random random;
 
@@ -354,10 +369,14 @@ void setup() {
 	// turn this off for svg exporting
 	pixelDensity(displayDensity());
 	carve();
+
+	if (solved) {
+		solutionPath = solve();
+	}
 }
 
 void draw() {
-	strokeWeight(10);
+	strokeWeight(4);
 	background(bg);
 	stroke(fg);
 
@@ -373,6 +392,22 @@ void draw() {
 		cp5.setAutoDraw(true);
 		System.out.println("exported SVG");
 	}
+
+	if (solved) drawSolution();
+}
+
+void drawSolution() {
+	push();
+		float mod = cells % 2 == 0 ? 1f : 0.5f;
+		translate(marginX+cellWidth*mod, marginY+cellHeight * mod);
+		strokeWeight(6);
+		stroke(cn);
+		beginShape();
+		for (HexCell pathNode : solutionPath) {
+			vertex(pathNode.px, pathNode.py);
+		}
+		endShape(OPEN);
+	pop();
 }
 
 HexCell current = null;
@@ -417,9 +452,7 @@ void carve() {
 			vec2 neighborCoords = current.getNeighborCoords(d);
 			HexCell neighbor = rows.get((int) neighborCoords.x).get((int) neighborCoords.y);
 			// this will connect with shit outside the grid
-			if (drawBorders) {
-				neighbor.connect(opposites.get(d));
-			}
+			neighbor.connect(opposites.get(d));
 
 			// mark the chosen cell as visited and push it to the stk
 			neighbor.visited = true;
@@ -429,10 +462,95 @@ void carve() {
 	current.highlighted = false;
 }
 
+List<HexCell> solve() {
+	println("solving maze with a*");
+	List<HexCell> path = aStar(
+		rows.get(0).get(0),
+		rows.get(cells-1).get(cells-1)
+	);
+	println("solved");
+	return path;
+}
+
+List<HexCell> aStar(HexCell start, HexCell goal) {
+	// set of discovered cells
+	// priority queue for logN lookup later
+	PriorityQueue<HexCell> openSet = new PriorityQueue<HexCell>(new CellComparator(start));
+	openSet.add(start);
+
+	// cameFrom[n] is the immediately preceding cell in the path
+	HashMap<HexCell, HexCell> cameFrom = new HashMap<HexCell, HexCell>();
+
+	//gScore[n] is the cell heuristic score
+	HashMap<HexCell, Integer> gScore = new HashMap<HexCell, Integer>();
+	gScore.put(start, 0);
+
+	// estimated cost of route through fscore[n]
+	HashMap<HexCell, Integer> fScore = new HashMap<HexCell, Integer>();
+	fScore.put(start, h(start, start));
+
+	while (!openSet.isEmpty()) {
+		// pqueues are sorted ascending
+		HexCell current = openSet.peek();
+		if (current == goal) {
+			return reconstructPath(cameFrom, current);
+		}
+
+		openSet.remove(current);
+		for (HexCell neighbor : current.getConnections()) {
+			// 1 is the weight of the path to the neighbor
+            // tentative_gScore is the distance from start to the neighbor through current
+			int tentative_gScore = gScore.get(current) + 1;
+			if (!gScore.containsKey(neighbor) || tentative_gScore < gScore.get(neighbor)) {
+				cameFrom.put(neighbor, current);
+				gScore.put(neighbor, tentative_gScore);
+				fScore.put(neighbor, tentative_gScore + h(start, neighbor));
+				if (!openSet.contains(neighbor)) {
+					openSet.add(neighbor);
+				}
+			}
+		}
+	}
+
+	return null;
+}
+
+List<HexCell> reconstructPath(HashMap<HexCell, HexCell> cameFrom, HexCell current) {
+	LinkedList<HexCell> total_path = new LinkedList<HexCell>();
+	total_path.add(current);
+	while (cameFrom.containsKey(current)) {
+		// cameFrom doesn't have current
+		current = cameFrom.get(current);
+		total_path.addFirst(current);
+	}
+	return total_path;
+}
+
+class CellComparator implements Comparator<HexCell> {
+	HexCell start;
+
+	public CellComparator(HexCell start) {
+		this.start = start;
+	}
+
+	public int compare(HexCell a, HexCell b) {
+		int da = h(start, a);
+		int db = h(start, b);
+		if (da < db) return 1;
+		else if (da > db) return -1;
+		else return 0;
+	}
+}
+
+int h(HexCell a, HexCell b) {
+	//cheaper manhattan distance since it's a grid
+	return (b.x-a.x) + (b.y-a.y);
+}
+
 void drawMaze() {
 	push();
-			float mod = cells % 2 == 0 ? 1f : 0.5f;
-			translate(marginX+cellWidth*mod, marginY+cellHeight * mod);
+		float mod = cells % 2 == 0 ? 1f : 0.5f;
+		translate(marginX+cellWidth*mod, marginY+cellHeight * mod);
 		for (int i=0; i<rows.size(); i++) {
 			for (int j=0; j<rows.get(i).size(); j++) {
 				rows.get(i).get(j).draw();
